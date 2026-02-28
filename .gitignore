@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# 环境变量文件（包含敏感信息）
+.env
+.env.production
+.env.development
+
+# IDE
+.claude/
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 上传文件
+uploads/
+
+# 数据库
+*.sql.backup
+*.db
+
+# 日志
+*.log
+
+# 操作系统
+.DS_Store
+Thumbs.db
