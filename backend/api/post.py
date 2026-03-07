@@ -2,8 +2,9 @@
 文章相关API
 学习要点：CRUD完整实现、分页查询、搜索过滤
 """
-from flask import request, jsonify
+from flask import request, jsonify, g
 from api import post_bp
+from api.auth import login_required, is_admin_user
 from app import get_db_connection
 
 
@@ -13,11 +14,12 @@ def get_posts():
     获取文章列表
     GET /api/v1/posts
     查询参数：page, limit, status, category_id, search
+    status可选值：published, draft, all（默认all，返回所有文章）
     """
     try:
         page = int(request.args.get('page', 1))
         limit = int(request.args.get('limit', 10))
-        status = request.args.get('status', 'published')
+        status = request.args.get('status', 'all')
         category_id = request.args.get('category_id')
         search = request.args.get('search', '')
         offset = (page - 1) * limit
@@ -25,8 +27,13 @@ def get_posts():
         conn = get_db_connection()
         with conn.cursor() as cursor:
             # 构建查询条件
-            where_conditions = ["status = %s"]
-            params = [status]
+            where_conditions = []
+            params = []
+
+            # 如果指定了status且不是all，则添加过滤条件
+            if status and status != 'all':
+                where_conditions.append("status = %s")
+                params.append(status)
 
             if category_id:
                 where_conditions.append("category_id = %s")
@@ -37,7 +44,11 @@ def get_posts():
                 search_pattern = f"%{search}%"
                 params.extend([search_pattern, search_pattern])
 
-            where_clause = " AND ".join(where_conditions)
+            # 如果没有条件，查询所有文章
+            if where_conditions:
+                where_clause = " AND ".join(where_conditions)
+            else:
+                where_clause = "1=1"
 
             # 获取总数
             count_sql = f"SELECT COUNT(*) as total FROM posts WHERE {where_clause}"
@@ -123,17 +134,19 @@ def get_post(post_id):
 
 
 @post_bp.route('/', methods=['POST'])
+@login_required
 def create_post():
     """
-    创建新文章
+    创建新文章（需要登录）
     POST /api/v1/posts
-    请求体：{ title, content, summary, category_id, author_id }
+    请求体：{ title, content, summary, category_id }
+    author_id自动从session获取
     """
     try:
         data = request.get_json()
 
         # 参数验证
-        required_fields = ['title', 'content', 'author_id']
+        required_fields = ['title', 'content']
         for field in required_fields:
             if not data or not data.get(field):
                 return jsonify({
@@ -143,13 +156,8 @@ def create_post():
 
         conn = get_db_connection()
         with conn.cursor() as cursor:
-            # 验证作者是否存在
-            cursor.execute("SELECT id FROM users WHERE id = %s", (data['author_id'],))
-            if not cursor.fetchone():
-                return jsonify({
-                    'success': False,
-                    'error': '作者不存在'
-                }), 400
+            # 使用当前登录用户作为作者
+            author_id = g.user_id
 
             # 插入文章
             cursor.execute("""
@@ -160,7 +168,7 @@ def create_post():
                 data['content'],
                 data.get('summary', ''),
                 data.get('category_id'),
-                data['author_id']
+                author_id
             ))
             conn.commit()
 
@@ -178,9 +186,10 @@ def create_post():
 
 
 @post_bp.route('/<int:post_id>', methods=['PUT'])
+@login_required
 def update_post(post_id):
     """
-    更新文章
+    更新文章（需要登录）
     PUT /api/v1/posts/{id}
     请求体：{ title, content, summary, category_id, status }
     """
@@ -212,13 +221,22 @@ def update_post(post_id):
 
         conn = get_db_connection()
         with conn.cursor() as cursor:
-            # 检查文章是否存在
-            cursor.execute("SELECT id FROM posts WHERE id = %s", (post_id,))
-            if not cursor.fetchone():
+            # 检查文章是否存在并获取作者信息
+            cursor.execute("SELECT id, author_id FROM posts WHERE id = %s", (post_id,))
+            post = cursor.fetchone()
+
+            if not post:
                 return jsonify({
                     'success': False,
                     'error': '文章不存在'
                 }), 404
+
+            # 权限检查：只有admin或文章作者可以更新
+            if not is_admin_user(g.user_id) and post['author_id'] != g.user_id:
+                return jsonify({
+                    'success': False,
+                    'error': '没有权限更新此文章'
+                }), 403
 
             # 更新文章
             cursor.execute(f"""
@@ -241,21 +259,32 @@ def update_post(post_id):
 
 
 @post_bp.route('/<int:post_id>', methods=['DELETE'])
+@login_required
 def delete_post(post_id):
     """
-    删除文章
+    删除文章（需要登录）
     DELETE /api/v1/posts/{id}
+    权限：只有admin或文章作者可以删除
     """
     try:
         conn = get_db_connection()
         with conn.cursor() as cursor:
-            # 检查文章是否存在
-            cursor.execute("SELECT id FROM posts WHERE id = %s", (post_id,))
-            if not cursor.fetchone():
+            # 检查文章是否存在并获取作者信息
+            cursor.execute("SELECT id, author_id FROM posts WHERE id = %s", (post_id,))
+            post = cursor.fetchone()
+
+            if not post:
                 return jsonify({
                     'success': False,
                     'error': '文章不存在'
                 }), 404
+
+            # 权限检查：只有admin或文章作者可以删除
+            if not is_admin_user(g.user_id) and post['author_id'] != g.user_id:
+                return jsonify({
+                    'success': False,
+                    'error': '没有权限删除此文章'
+                }), 403
 
             # 删除文章
             cursor.execute("DELETE FROM posts WHERE id = %s", (post_id,))

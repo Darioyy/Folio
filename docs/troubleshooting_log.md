@@ -1111,7 +1111,241 @@ Ctrl + Shift + R
 
 ---
 
+## 问题19: 前台页面没有登录入口
+
+**问题描述**:
+用户无法从前台进入后台管理页面
+
+**解决方案**:
+在导航栏添加"后台管理"链接
+
+**修复代码** (frontend/index.html):
+```html
+<li><a href="admin.html" class="nav-link">后台管理</a></li>
+```
+
+---
+
+## 问题20: 登录时中文乱码
+
+**问题描述**:
+登录成功/失败后，中文提示显示为乱码
+
+**问题分析**:
+Flask默认使用ASCII编码JSON，中文字符被转义
+
+**解决方案**:
+在Flask配置中禁用ASCII编码
+
+**修复代码** (backend/app.py):
+```python
+app = Flask(__name__)
+app.config['JSON_AS_ASCII'] = False  # 确保JSON正确处理中文
+```
+
+---
+
+## 问题21: 权限控制缺失
+
+**问题描述**:
+1. 任何登录用户都可以删除任何内容
+2. 无法区分admin和普通用户
+
+**解决方案**:
+1. 创建权限验证装饰器 (`api/auth.py`)
+2. 实现所有权检查逻辑
+3. 前端根据权限显示操作按钮
+
+**核心代码** (backend/api/auth.py):
+```python
+def login_required(f):
+    """登录验证装饰器"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'success': False, 'error': '请先登录'}), 401
+        g.user_id = user_id
+        g.is_admin = is_admin_user(user_id)
+        return f(*args, **kwargs)
+    return decorated_function
+
+def is_admin_user(user_id):
+    """检查是否是admin用户"""
+    conn = get_db_connection()
+    with conn.cursor() as cursor:
+        cursor.execute("SELECT username FROM users WHERE id = %s", (user_id,))
+        user = cursor.fetchone()
+        return user and user.get('username') == 'admin'
+```
+
+**删除权限检查** (backend/api/post.py):
+```python
+@post_bp.route('/<int:post_id>', methods=['DELETE'])
+@login_required
+def delete_post(post_id):
+    # 获取文章信息
+    cursor.execute("SELECT author_id FROM posts WHERE id = %s", (post_id,))
+    post = cursor.fetchone()
+
+    # 权限检查
+    if not is_admin_user(g.user_id) and post['author_id'] != g.user_id:
+        return jsonify({'success': False, 'error': '没有权限删除此文章'}), 403
+```
+
+---
+
+## 问题22: 前台存在删除功能
+
+**问题描述**:
+前台页面有删除按钮，普通访问者也能看到
+
+**解决方案**:
+1. 移除前台的删除按钮
+2. 移除前台的删除函数
+3. 所有删除操作只能在后台进行
+
+**修复代码**:
+```javascript
+// main.js - 移除删除按钮
+container.innerHTML = posts.map(post => `
+    <div class="media-card">
+        <img src="${MediaAPI.getViewUrl(media.id)}">
+        <div class="media-info">
+            <h4>${escapeHtml(media.title)}</h4>
+            <!-- 删除按钮已移除 -->
+        </div>
+    </div>
+`).join('');
+```
+
+---
+
+## 问题23: 上传功能分散
+
+**问题描述**:
+上传功能在独立的upload.html页面，不便管理
+
+**解决方案**:
+1. 将上传功能整合到后台管理页面
+2. 使用标签页切换不同类型上传
+3. 移除前台的上传入口
+
+**修复代码** (frontend/admin.html):
+```html
+<!-- 后台侧边栏添加上传菜单 -->
+<div class="nav-item" data-page="upload">
+    <span>📤</span>
+    <span>文件上传</span>
+</div>
+
+<!-- 上传页面 -->
+<div class="page-section" id="uploadSection">
+    <div class="upload-tabs">
+        <button class="upload-tab-btn active" data-tab="video">视频</button>
+        <button class="upload-tab-btn" data-tab="image">图片</button>
+        <button class="upload-tab-btn" data-tab="resource">学习资料</button>
+    </div>
+    <!-- 各类型上传表单 -->
+</div>
+```
+
+---
+
+## 总结与关键知识点（更新）
+
+### 1. 权限管理
+| 要点 | 说明 |
+|------|------|
+| 装饰器模式 | `@login_required` 保护API |
+| 权限判断 | admin用户名判断 |
+| 所有权检查 | 创建者ID与当前用户比对 |
+| 前端UI控制 | 根据权限显示/隐藏按钮 |
+
+### 2. Session管理
+| 要点 | 说明 |
+|------|------|
+| Session存储 | 用户ID和用户名 |
+| Session清除 | 登出时调用 `session.clear()` |
+| 跨域支持 | CORS配置 `supports_credentials: True` |
+
+### 3. 中文支持
+| 要点 | 说明 |
+|------|------|
+| JSON编码 | `JSON_AS_ASCII = False` |
+| 数据库编码 | charset='utf8mb4' |
+| 文件编码 | HTML UTF-8声明 |
+
+### 4. 安全要点
+| 要点 | 说明 |
+|------|------|
+| 密码哈希 | SHA-256 + 盐 |
+| SQL注入防护 | 参数化查询 |
+| XSS防护 | HTML转义输出 |
+| 文件上传 | 类型验证、路径验证 |
+
+---
+
+## 调试技巧总结
+
+### 1. 权限问题调试
+```bash
+# 检查当前用户
+curl -b cookies.txt http://localhost:5000/api/v1/users/me
+
+# 检查登录状态
+curl -b cookies.txt http://localhost:5000/api/v1/users/check-auth
+
+# 测试权限（尝试删除）
+curl -X DELETE -b cookies.txt http://localhost:5000/api/v1/posts/1
+```
+
+### 2. 前端调试
+```javascript
+// 查看当前用户信息
+console.log('当前用户:', currentUser);
+
+// 查看权限状态
+console.log('是否管理员:', currentUser?.is_admin);
+
+// 检查API响应
+fetch('/api/v1/users/me')
+    .then(r => r.json())
+    .then(data => console.log('用户数据:', data));
+```
+
+### 3. 清除Session
+```javascript
+// 前端清除
+fetch('/api/v1/users/logout', { method: 'POST' });
+
+// 浏览器清除Cookie
+F12 → Application → Cookies → 删除所有cookie
+```
+
+---
+
+## 文件清单（更新）
+
+### 后端
+- `backend/app.py` - Flask主入口
+- `backend/config.py` - 配置管理
+- `backend/api/auth.py` - **新增** 权限验证
+- `backend/api/user.py` - 用户认证、注册
+- `backend/api/post.py` - 文章CRUD（带权限）
+- `backend/api/resource.py` - 资源CRUD（带权限）
+- `backend/api/media.py` - 媒体CRUD（带权限）
+- `backend/api/system.py` - 系统信息
+
+### 前端
+- `frontend/index.html` - 前台首页（无删除功能）
+- `frontend/admin.html` - **新增** 后台管理
+- `frontend/js/main.js` - 主逻辑（移除删除）
+- `frontend/js/api.js` - API调用
+
+---
+
 **文档创建时间**: 2024-02-28
-**最后更新**: 2024-02-28 23:35
-**问题总数**: 18个
-**状态**: 已完成所有问题修复，视频缩略图功能正常
+**最后更新**: 2026-03-07
+**问题总数**: 23个
+**项目状态**: ✅ 功能完成，权限系统已实现

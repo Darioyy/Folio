@@ -110,6 +110,8 @@ async function loadPosts() {
                 <div class="post-meta">
                     <span>${post.category_name || '未分类'}</span>
                     <span> · </span>
+                    <span>${post.author_name || '匿名'}</span>
+                    <span> · </span>
                     <span>${formatDate(post.created_at)}</span>
                     <span> · </span>
                     <span>${post.view_count} 次浏览</span>
@@ -188,7 +190,6 @@ async function loadMedia() {
                          onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2216%22 height=%229%22%3E%3Crect fill=%22%23ddd%22 width=%2216%22 height=%229%22/%3E%3C/svg%3E'">
                     <div class="media-info">
                         <h4>${escapeHtml(media.title)}</h4>
-                        <button class="btn-delete" data-action="delete" data-id="${media.id}">删除</button>
                     </div>
                 </div>
             `).join('');
@@ -221,7 +222,6 @@ async function loadMedia() {
                             </div>
                             <div class="media-info">
                                 <h4>${escapeHtml(media.title)}</h4>
-                                <button class="btn-delete" data-action="delete" data-id="${media.id}">删除</button>
                             </div>
                         </div>
                     `;
@@ -233,7 +233,6 @@ async function loadMedia() {
                             </div>
                             <div class="media-info">
                                 <h4>${escapeHtml(media.title)}</h4>
-                                <button class="btn-delete" data-action="delete" data-id="${media.id}">删除</button>
                             </div>
                         </div>
                     `;
@@ -249,16 +248,6 @@ async function loadMedia() {
                 });
             });
         }
-
-        // 添加删除按钮事件
-        container.querySelectorAll('.btn-delete').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const id = parseInt(btn.dataset.id);
-                const title = btn.closest('.media-card').querySelector('h4').textContent;
-                deleteMedia(id, title);
-            });
-        });
 
     } catch (error) {
         container.innerHTML = `<p class="error">加载失败: ${error.message}</p>`;
@@ -341,23 +330,6 @@ function closePreview(event) {
     const container = document.getElementById('previewContainer');
     modal.classList.remove('active');
     container.innerHTML = '';
-}
-
-/**
- * 删除媒体文件
- */
-async function deleteMedia(id, title) {
-    if (!confirm(`确定要删除 "${title}" 吗？`)) {
-        return;
-    }
-
-    try {
-        await MediaAPI.deleteMedia(id);
-        alert('删除成功！');
-        loadMedia(); // 重新加载列表
-    } catch (error) {
-        alert(`删除失败: ${error.message}`);
-    }
 }
 
 /**

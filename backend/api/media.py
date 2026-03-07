@@ -6,9 +6,10 @@ import os
 import uuid
 import cv2
 import numpy as np
-from flask import request, jsonify, send_file
+from flask import request, jsonify, send_file, g
 from werkzeug.utils import secure_filename
 from api import media_bp
+from api.auth import login_required, is_admin_user
 from app import get_db_connection
 from config import Config
 
@@ -172,12 +173,14 @@ def get_media_detail(media_id):
 
 
 @media_bp.route('/upload', methods=['POST'])
+@login_required
 def upload_media():
     """
-    上传媒体文件
+    上传媒体文件（需要登录）
     POST /api/v1/media/upload
     请求格式：multipart/form-data
-    表单字段：file, title, description, type (image/video), uploader_id, thumbnail (可选)
+    表单字段：file, title, description, type (image/video), thumbnail (可选)
+    uploader_id自动从session获取
     """
     try:
         # 检查是否有文件
@@ -198,13 +201,13 @@ def upload_media():
         title = request.form.get('title')
         description = request.form.get('description', '')
         media_type = request.form.get('type', 'image')
-        uploader_id = request.form.get('uploader_id')
+        uploader_id = g.user_id  # 使用当前登录用户
         thumbnail_file = request.files.get('thumbnail')  # 可选封面上传
 
-        if not title or not uploader_id:
+        if not title:
             return jsonify({
                 'success': False,
-                'error': 'title 和 uploader_id 不能为空'
+                'error': 'title 不能为空'
             }), 400
 
         # 验证文件类型
@@ -233,6 +236,7 @@ def upload_media():
 
         # 处理缩略图
         thumbnail_path = None
+        normalized_path = os.path.normpath(file_path)
 
         if media_type == 'image':
             # 图片直接作为自己的缩略图
@@ -245,16 +249,15 @@ def upload_media():
                 thumb_filename = f"{uuid.uuid4().hex}_thumb.{thumb_ext}"
                 thumbnail_path = os.path.join(thumbnail_dir, thumb_filename)
                 thumbnail_file.save(thumbnail_path)
+                thumbnail_path = os.path.normpath(thumbnail_path)
             else:
                 # 没有上传封面，自动截取视频第一帧
                 print(f"正在为视频生成缩略图: {file.filename}")
                 thumbnail_path = generate_video_thumbnail(file_path, thumbnail_dir)
+                if thumbnail_path:
+                    thumbnail_path = os.path.normpath(thumbnail_path)
 
-        # 保存到数据库（使用规范化的绝对路径）
-        normalized_path = os.path.normpath(file_path)
-        if thumbnail_path:
-            thumbnail_path = os.path.normpath(thumbnail_path)
-
+        # 保存到数据库
         conn = get_db_connection()
         with conn.cursor() as cursor:
             cursor.execute("""
@@ -323,16 +326,18 @@ def view_media(media_id):
 
 
 @media_bp.route('/<int:media_id>', methods=['DELETE'])
+@login_required
 def delete_media(media_id):
     """
-    删除媒体
+    删除媒体（需要登录）
     DELETE /api/v1/media/{id}
+    权限：只有admin或上传者可以删除
     """
     try:
         conn = get_db_connection()
         with conn.cursor() as cursor:
-            # 获取媒体信息
-            cursor.execute("SELECT file_path FROM media WHERE id = %s", (media_id,))
+            # 获取媒体信息和上传者信息
+            cursor.execute("SELECT file_path, uploader_id FROM media WHERE id = %s", (media_id,))
             media = cursor.fetchone()
 
             if not media:
@@ -340,6 +345,13 @@ def delete_media(media_id):
                     'success': False,
                     'error': '媒体不存在'
                 }), 404
+
+            # 权限检查：只有admin或上传者可以删除
+            if not is_admin_user(g.user_id) and media['uploader_id'] != g.user_id:
+                return jsonify({
+                    'success': False,
+                    'error': '没有权限删除此媒体'
+                }), 403
 
             # 删除数据库记录
             cursor.execute("DELETE FROM media WHERE id = %s", (media_id,))

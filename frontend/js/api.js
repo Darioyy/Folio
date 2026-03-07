@@ -184,5 +184,57 @@ const UserAPI = {
     createUser: (data) => apiRequest('/users', {
         method: 'POST',
         body: JSON.stringify(data)
-    })
+    }),
+
+    // 登录
+    login: async (username, password) => {
+        const response = await fetch(`${API_BASE_URL}/users/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ username, password })
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.error || '登录失败');
+        }
+        return data;
+    },
+
+    // 登出
+    logout: async () => {
+        const response = await fetch(`${API_BASE_URL}/users/logout`, {
+            method: 'POST',
+            credentials: 'include'
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.error || '登出失败');
+        }
+        return data;
+    },
+
+    // 检查登录状态
+    checkAuth: async () => {
+        const response = await fetch(`${API_BASE_URL}/users/check-auth`, {
+            credentials: 'include'
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || '请求失败');
+        }
+        return data;
+    },
+
+    // 获取当前用户
+    getMe: async () => {
+        const response = await fetch(`${API_BASE_URL}/users/me`, {
+            credentials: 'include'
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.error || '请求失败');
+        }
+        return data;
+    }
 };

@@ -2,8 +2,9 @@
 系统相关API
 学习要点：系统信息获取、统计数据
 """
-from flask import jsonify
+from flask import request, jsonify, g
 from api import system_bp
+from api.auth import login_required
 from app import get_db_connection
 
 
@@ -79,6 +80,67 @@ def get_categories():
             'success': True,
             'data': categories
         })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@system_bp.route('/categories', methods=['POST'])
+@login_required
+def create_category():
+    """
+    创建新分类（需要登录）
+    POST /api/v1/system/categories
+    请求体：{ name, type, description }
+    """
+    try:
+        data = request.get_json()
+
+        if not data or not data.get('name') or not data.get('type'):
+            return jsonify({
+                'success': False,
+                'error': '分类名称和类型不能为空'
+            }), 400
+
+        name = data['name'].strip()
+        category_type = data['type']
+        description = data.get('description', '').strip()
+
+        # 验证分类类型
+        if category_type not in ['post', 'resource', 'media']:
+            return jsonify({
+                'success': False,
+                'error': '分类类型必须是 post、resource 或 media'
+            }), 400
+
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            # 检查分类名是否已存在
+            cursor.execute("SELECT id FROM categories WHERE name = %s AND type = %s", (name, category_type))
+            if cursor.fetchone():
+                return jsonify({
+                    'success': False,
+                    'error': '该分类名称已存在'
+                }), 400
+
+            # 创建分类
+            cursor.execute("""
+                INSERT INTO categories (name, type, description)
+                VALUES (%s, %s, %s)
+            """, (name, category_type, description))
+            conn.commit()
+
+            return jsonify({
+                'success': True,
+                'message': '分类创建成功',
+                'data': {
+                    'id': cursor.lastrowid,
+                    'name': name
+                }
+            }), 201
 
     except Exception as e:
         return jsonify({

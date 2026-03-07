@@ -49,13 +49,21 @@ def create_app(config_name='development'):
     """
     app = Flask(__name__)
     app.config.from_object(config[config_name])
+    app.config['JSON_AS_ASCII'] = False  # 确保JSON正确处理中文
 
-    # 启用CORS - 允许前端跨域访问
+    # 配置session
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+
+    # 启用CORS - 允许前端跨域访问（支持credentials）
     CORS(app, resources={
         r"/api/*": {
-            "origins": "*",
-            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-            "allow_headers": ["Content-Type", "Authorization"]
+            "origins": ["http://localhost:5000", "http://127.0.0.1:5000", "http://localhost:5500", "http://127.0.0.1:5500"],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+            "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
+            "supports_credentials": True,
+            "max_age": 3600,
+            "expose_headers": ["Content-Type", "Authorization"]
         }
     })
 
