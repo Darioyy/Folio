@@ -1,0 +1,2049 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>后台管理 - 我的博客</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚙️</text></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+        }
+
+        /* 登录页面样式 */
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .login-box {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+        .login-box h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+        .form-group input, .form-group textarea, .form-group select, .form-group input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background: #5568d3;
+        }
+        .btn-secondary {
+            background: #6c757d;
+        }
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        .btn-danger {
+            background: #dc3545;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        .btn-success {
+            background: #28a745;
+        }
+        .btn-success:hover {
+            background: #218838;
+        }
+        .btn-link {
+            background: none;
+            color: #667eea;
+            border: none;
+            padding: 0;
+            text-decoration: underline;
+            width: auto;
+        }
+        .message {
+            text-align: center;
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 6px;
+        }
+        .error-msg {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: none;
+        }
+        .success-msg {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: none;
+        }
+
+        /* 后台主界面样式 */
+        .admin-container {
+            display: none;
+        }
+        .admin-container.active {
+            display: block;
+        }
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 250px;
+            height: 100vh;
+            background: #2c3e50;
+            color: white;
+            padding: 20px 0;
+            overflow-y: auto;
+            z-index: 100;
+        }
+        .sidebar-nav {
+            height: calc(100vh - 140px);
+            overflow-y: auto;
+            padding-bottom: 60px;
+        }
+        .sidebar-header {
+            padding: 0 20px 20px;
+            border-bottom: 1px solid #34495e;
+        }
+        .sidebar-header h2 {
+            font-size: 20px;
+        }
+        .user-info {
+            padding: 15px 20px;
+            background: #34495e;
+            margin-top: 10px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .nav-item {
+            padding: 15px 20px;
+            cursor: pointer;
+            transition: background 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .nav-item:hover {
+            background: #34495e;
+        }
+        .nav-item.active {
+            background: #667eea;
+        }
+        .nav-item.logout {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #1a252f;
+        }
+        .nav-item.has-submenu {
+            justify-content: space-between;
+        }
+        .nav-item.has-submenu .nav-toggle {
+            transition: transform 0.3s;
+        }
+        .nav-item.has-submenu.expanded .nav-toggle {
+            transform: rotate(180deg);
+        }
+        .submenu {
+            display: none;
+            background: #233342;
+            padding-left: 20px;
+        }
+        .submenu.expanded {
+            display: block;
+        }
+        .submenu-item {
+            padding: 12px 20px 12px 40px;
+            cursor: pointer;
+            transition: background 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #bdc3c7;
+        }
+        .submenu-item:hover {
+            background: #34495e;
+            color: white;
+        }
+        .submenu-item.active {
+            background: #667eea;
+            color: white;
+        }
+        .main-content {
+            margin-left: 250px;
+            padding: 30px;
+        }
+        .content-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .content-header h1 {
+            color: #333;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .stat-label {
+            color: #888;
+            margin-top: 5px;
+        }
+
+        /* 表格样式 */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #555;
+        }
+        .actions {
+            display: flex;
+            gap: 8px;
+        }
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+            width: auto;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        /* 模态框样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.active {
+            display: flex;
+        }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .modal-header h2 {
+            color: #333;
+        }
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+        .close-modal:hover {
+            color: #333;
+        }
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: flex-end;
+        }
+
+        /* 页面区域控制 */
+        .page-section {
+            display: none;
+        }
+        .page-section.active {
+            display: block;
+        }
+
+        /* 上传页面样式 */
+        .upload-section {
+            display: none;
+        }
+        .upload-section.active {
+            display: block;
+        }
+        .upload-tabs {
+            display: flex;
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 25px;
+        }
+        .upload-tab-btn {
+            padding: 12px 24px;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            font-size: 15px;
+            color: #666;
+            margin-bottom: -2px;
+            transition: all 0.3s;
+        }
+        .upload-tab-btn:hover {
+            color: #667eea;
+        }
+        .upload-tab-btn.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        .upload-tab-content {
+            display: none;
+        }
+        .upload-tab-content.active {
+            display: block;
+        }
+        .post-filters {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .filter-btn {
+            padding: 8px 16px;
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #666;
+            transition: all 0.3s;
+        }
+        .filter-btn:hover {
+            background: #e9ecef;
+            color: #333;
+        }
+        .filter-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <!-- 登录/注册页面 -->
+    <div class="login-container" id="loginPage">
+        <div class="login-box">
+            <h1 id="authTitle">后台登录</h1>
+
+            <!-- 登录表单 -->
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>用户名</label>
+                    <input type="text" id="username" placeholder="请输入用户名" required>
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" id="password" placeholder="请输入密码" required>
+                </div>
+                <button type="submit" class="btn">登录</button>
+                <div class="message error-msg" id="loginError"></div>
+                <div class="message success-msg" id="loginSuccess"></div>
+                <p style="text-align: center; margin-top: 10px; color: #666; font-size: 14px;">
+                    <button type="button" class="btn-link" onclick="showForgotPasswordForm()">忘记密码？</button>
+                    <span style="margin: 0 10px;">|</span>
+                    <button type="button" class="btn-link" onclick="showRegisterForm()">立即注册</button>
+                </p>
+                <p style="text-align: center; margin-top: 5px; color: #666; font-size: 14px;">
+                    <a href="index.html" style="color: #667eea; text-decoration: none;">← 返回首页</a>
+                    <span style="margin: 0 15px;">|</span>
+                    <button type="button" class="btn-link" onclick="clearLoginCache()" style="color: #999; font-size: 12px;">清除缓存</button>
+                </p>
+            </form>
+
+            <!-- 注册表单 -->
+            <form id="registerForm" style="display: none;">
+                <div class="form-group">
+                    <label>用户名</label>
+                    <input type="text" id="regUsername" placeholder="请输入用户名" required>
+                </div>
+                <div class="form-group">
+                    <label>邮箱</label>
+                    <input type="email" id="regEmail" placeholder="请输入邮箱">
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" id="regPassword" placeholder="请输入密码(至少6位)" required>
+                </div>
+                <div class="form-group">
+                    <label>确认密码</label>
+                    <input type="password" id="regPasswordConfirm" placeholder="请再次输入密码" required>
+                </div>
+                <button type="submit" class="btn btn-success">注册</button>
+                <div class="message error-msg" id="registerError"></div>
+                <div class="message success-msg" id="registerSuccess"></div>
+                <p style="text-align: center; margin-top: 15px; color: #666; font-size: 14px;">
+                    已有账号？<button type="button" class="btn-link" onclick="showLoginForm()">立即登录</button>
+                </p>
+            </form>
+
+            <!-- 忘记密码表单 -->
+            <form id="forgotPasswordForm" style="display: none;">
+                <h3 style="text-align: center; margin-bottom: 20px; color: #555;">重置密码</h3>
+                <div class="form-group">
+                    <label>用户名</label>
+                    <input type="text" id="forgotUsername" placeholder="请输入用户名" required>
+                </div>
+                <div class="form-group">
+                    <label>邮箱</label>
+                    <input type="email" id="forgotEmail" placeholder="请输入注册时的邮箱" required>
+                </div>
+                <button type="submit" class="btn btn-success">获取重置码</button>
+                <div class="message error-msg" id="forgotError"></div>
+                <div class="message success-msg" id="forgotSuccess"></div>
+                <p style="text-align: center; margin-top: 15px; color: #666; font-size: 14px;">
+                    <button type="button" class="btn-link" onclick="showLoginForm()">返回登录</button>
+                    <span style="margin: 0 10px;">|</span>
+                    <button type="button" class="btn-link" onclick="showRegisterForm()">立即注册</button>
+                </p>
+            </form>
+
+            <!-- 确认重置表单 -->
+            <form id="confirmResetForm" style="display: none;">
+                <h3 style="text-align: center; margin-bottom: 20px; color: #555;">设置新密码</h3>
+                <input type="hidden" id="resetUserId">
+                <div class="form-group">
+                    <label>重置码</label>
+                    <input type="text" id="resetCode" placeholder="请输入系统返回的重置码" required>
+                </div>
+                <div class="form-group">
+                    <label>新密码</label>
+                    <input type="password" id="resetNewPassword" placeholder="请输入新密码(至少6位)" required>
+                </div>
+                <div class="form-group">
+                    <label>确认新密码</label>
+                    <input type="password" id="resetConfirmPassword" placeholder="请再次输入新密码" required>
+                </div>
+                <button type="submit" class="btn btn-success">确认重置</button>
+                <div class="message error-msg" id="confirmResetError"></div>
+                <div class="message success-msg" id="confirmResetSuccess"></div>
+                <p style="text-align: center; margin-top: 15px; color: #666; font-size: 14px;">
+                    <button type="button" class="btn-link" onclick="showLoginForm()">返回登录</button>
+                </p>
+            </form>
+        </div>
+    </div>
+
+    <!-- 后台主界面 -->
+    <div class="admin-container" id="adminPage">
+        <!-- 侧边栏 -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>博客管理后台</h2>
+                <div class="user-info">
+                    <span id="currentUsername">加载中...</span>
+                </div>
+                <div style="margin-top: 10px; font-size: 12px;">
+                    <button type="button" class="btn-link" onclick="showChangePasswordModal()" style="color: #aaa;">修改个人信息</button>
+                </div>
+            </div>
+            <div class="sidebar-nav">
+                <div class="nav-item active" data-page="dashboard">
+                    <span>📊</span>
+                    <span>概览</span>
+                </div>
+                <div class="nav-item has-submenu" onclick="toggleSubmenu(this)">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span>📁</span>
+                        <span>文件管理</span>
+                    </div>
+                    <span class="nav-toggle">▼</span>
+                </div>
+                <div class="submenu" id="fileSubmenu">
+                    <div class="submenu-item" data-page="posts">
+                        <span>📝</span>
+                        <span>文章管理</span>
+                    </div>
+                    <div class="submenu-item" data-page="media-manage">
+                        <span>🖼️</span>
+                        <span>视频图片管理</span>
+                    </div>
+                    <div class="submenu-item" data-page="resource-manage">
+                        <span>📚</span>
+                        <span>资料管理</span>
+                    </div>
+                    <div class="submenu-item" data-page="categories">
+                        <span>🏷️</span>
+                        <span>分类管理</span>
+                    </div>
+                </div>
+                <div class="nav-item" data-page="upload">
+                    <span>📤</span>
+                    <span>文件上传</span>
+                </div>
+                <div class="nav-item" data-page="users">
+                    <span>👥</span>
+                    <span>用户管理</span>
+                </div>
+                <div class="nav-item" onclick="window.location.href='index.html'" style="cursor: pointer;">
+                    <span>🏠</span>
+                    <span>返回首页</span>
+                </div>
+            </div>
+            <div class="nav-item logout" id="logoutBtn">
+                <span>🚪</span>
+                <span>退出登录</span>
+            </div>
+        </div>
+
+        <!-- 主内容区 -->
+        <div class="main-content">
+            <!-- 概览页面 -->
+            <div class="page-section active" id="dashboardSection">
+                <div class="content-header">
+                    <h1>数据概览</h1>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="statPosts">0</div>
+                        <div class="stat-label">文章总数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statResources">0</div>
+                        <div class="stat-label">学习资料</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statMedia">0</div>
+                        <div class="stat-label">媒体文件</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statUsers">0</div>
+                        <div class="stat-label">用户数量</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h2>快速操作</h2>
+                    <div style="display: flex; gap: 10px; margin-top: 15px;">
+                        <button class="btn btn-success" style="width: auto;" onclick="showPostModal()">📝 写文章</button>
+                        <button class="btn btn-success" style="width: auto;" onclick="navigateTo('upload')">📤 上传文件</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 文章管理页面 -->
+            <div class="page-section" id="postsSection">
+                <div class="content-header">
+                    <h1>文章管理</h1>
+                    <button class="btn btn-success" style="width: auto;" onclick="showPostModal()">+ 新建文章</button>
+                </div>
+                <div class="card">
+                    <div class="post-filters">
+                        <button class="filter-btn active" data-status="all" onclick="filterPosts('all')">全部</button>
+                        <button class="filter-btn" data-status="published" onclick="filterPosts('published')">已发布</button>
+                        <button class="filter-btn" data-status="draft" onclick="filterPosts('draft')">草稿</button>
+                    </div>
+                    <table id="postsTable">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>标题</th>
+                                <th>分类</th>
+                                <th>状态</th>
+                                <th>浏览</th>
+                                <th>创建时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="postsTableBody">
+                            <tr><td colspan="7" class="empty-state">加载中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 文件上传页面 -->
+            <div class="page-section" id="uploadSection">
+                <div class="content-header">
+                    <h1>文件上传</h1>
+                </div>
+
+                <div class="upload-tabs">
+                    <button class="upload-tab-btn active" data-tab="video">视频</button>
+                    <button class="upload-tab-btn" data-tab="image">图片</button>
+                    <button class="upload-tab-btn" data-tab="resource">学习资料</button>
+                </div>
+
+                <!-- 视频上传 -->
+                <div class="card upload-tab-content active" id="videoTab">
+                    <form id="videoForm">
+                        <div class="form-group">
+                            <label>选择视频文件</label>
+                            <input type="file" id="videoFile" accept="video/mp4,video/webm,video/avi" required>
+                        </div>
+                        <div class="form-group">
+                            <label>视频标题</label>
+                            <input type="text" id="videoTitle" placeholder="例如：精彩游戏瞬间" required>
+                        </div>
+                        <div class="form-group">
+                            <label>视频描述</label>
+                            <textarea id="videoDescription" rows="3" placeholder="简单描述这个视频..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>视频封面（可选）</label>
+                            <input type="file" id="videoThumbnail" accept="image/png,image/jpeg,image/gif,image/webp">
+                            <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
+                                如不上传封面，系统将自动截取视频第一帧作为封面
+                            </small>
+                        </div>
+                        <button type="submit" class="btn btn-success">上传视频</button>
+                    </form>
+                    <div class="message" id="videoResult"></div>
+                </div>
+
+                <!-- 图片上传 -->
+                <div class="card upload-tab-content" id="imageTab">
+                    <form id="imageForm">
+                        <div class="form-group">
+                            <label>选择图片文件</label>
+                            <input type="file" id="imageFile" accept="image/png,image/jpeg,image/gif,image/webp" required>
+                        </div>
+                        <div class="form-group">
+                            <label>图片标题</label>
+                            <input type="text" id="imageTitle" placeholder="例如：游戏截图" required>
+                        </div>
+                        <div class="form-group">
+                            <label>图片描述</label>
+                            <textarea id="imageDescription" rows="3" placeholder="简单描述这张图片..."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-success">上传图片</button>
+                    </form>
+                    <div class="message" id="imageResult"></div>
+                </div>
+
+                <!-- 学习资料上传 -->
+                <div class="card upload-tab-content" id="resourceTab">
+                    <form id="resourceForm">
+                        <div class="form-group">
+                            <label>选择文件</label>
+                            <input type="file" id="resourceFile" accept=".pdf,.doc,.docx,.txt,.md" required>
+                        </div>
+                        <div class="form-group">
+                            <label>资料标题</label>
+                            <input type="text" id="resourceTitle" placeholder="例如：Python学习笔记" required>
+                        </div>
+                        <div class="form-group">
+                            <label>资料描述</label>
+                            <textarea id="resourceDescription" rows="3" placeholder="简单描述这份资料..."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-success">上传资料</button>
+                    </form>
+                    <div class="message" id="resourceResult"></div>
+                </div>
+            </div>
+
+            <!-- 分类管理页面 -->
+            <div class="page-section" id="categoriesSection">
+                <div class="content-header">
+                    <h1>分类管理</h1>
+                    <button class="btn btn-success" style="width: auto;" onclick="showCategoryModal()">+ 新建分类</button>
+                </div>
+                <div class="card">
+                    <table id="categoriesTable">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>名称</th>
+                                <th>类型</th>
+                                <th>描述</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="categoriesTableBody">
+                            <tr><td colspan="5" class="empty-state">加载中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 视频图片管理页面 -->
+            <div class="page-section" id="media-manageSection">
+                <div class="content-header">
+                    <h1>视频图片管理</h1>
+                </div>
+                <div class="card">
+                    <div class="media-filters">
+                        <button class="filter-btn active" data-type="all" onclick="filterMediaManage('all')">全部</button>
+                        <button class="filter-btn" data-type="image" onclick="filterMediaManage('image')">图片</button>
+                        <button class="filter-btn" data-type="video" onclick="filterMediaManage('video')">视频</button>
+                    </div>
+                    <table id="mediaManageTable">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>类型</th>
+                                <th>标题</th>
+                                <th>描述</th>
+                                <th>创建时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mediaManageTableBody">
+                            <tr><td colspan="6" class="empty-state">加载中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 资料管理页面 -->
+            <div class="page-section" id="resource-manageSection">
+                <div class="content-header">
+                    <h1>学习资料管理</h1>
+                </div>
+                <div class="card">
+                    <table id="resourceManageTable">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>标题</th>
+                                <th>描述</th>
+                                <th>文件大小</th>
+                                <th>下载次数</th>
+                                <th>创建时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resourceManageTableBody">
+                            <tr><td colspan="7" class="empty-state">加载中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 用户管理页面 -->
+            <div class="page-section" id="usersSection">
+                <div class="content-header">
+                    <h1>用户管理</h1>
+                </div>
+                <div class="card">
+                    <table id="usersTable">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>用户名</th>
+                                <th>邮箱</th>
+                                <th>创建时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody">
+                            <tr><td colspan="5" class="empty-state">加载中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 文章编辑模态框 -->
+    <div class="modal" id="postModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="postModalTitle">新建文章</h2>
+                <button class="close-modal" onclick="closeModal('postModal')">&times;</button>
+            </div>
+            <form id="postForm">
+                <input type="hidden" id="postId">
+                <div class="form-group">
+                    <label>文章标题 *</label>
+                    <input type="text" id="postTitle" required>
+                </div>
+                <div class="form-group">
+                    <label>文章摘要</label>
+                    <textarea id="postSummary" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>分类</label>
+                    <select id="postCategory">
+                        <option value="">未分类</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>文章内容 *</label>
+                    <textarea id="postContent" rows="10" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>状态</label>
+                    <select id="postStatus">
+                        <option value="draft">草稿</option>
+                        <option value="published">发布</option>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('postModal')">取消</button>
+                    <button type="submit" class="btn btn-success">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 分类编辑模态框 -->
+    <div class="modal" id="categoryModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="categoryModalTitle">新建分类</h2>
+                <button class="close-modal" onclick="closeModal('categoryModal')">&times;</button>
+            </div>
+            <form id="categoryForm">
+                <input type="hidden" id="categoryId">
+                <div class="form-group">
+                    <label>分类名称 *</label>
+                    <input type="text" id="categoryName" required>
+                </div>
+                <div class="form-group">
+                    <label>分类类型 *</label>
+                    <select id="categoryType" required>
+                        <option value="post">文章分类</option>
+                        <option value="resource">资源分类</option>
+                        <option value="media">媒体分类</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>分类描述</label>
+                    <textarea id="categoryDescription" rows="3"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('categoryModal')">取消</button>
+                    <button type="submit" class="btn btn-success">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 修改个人信息模态框 -->
+    <div class="modal" id="changePasswordModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>修改个人信息</h2>
+                <button class="close-modal" onclick="closeModal('changePasswordModal')">&times;</button>
+            </div>
+            <form id="changePasswordForm">
+                <div class="form-group">
+                    <label>当前密码 *</label>
+                    <small style="color: #666; display: block; margin-top: 4px;">修改任何信息都需要验证当前密码</small>
+                    <input type="password" id="oldPassword" required>
+                </div>
+                <div class="form-group">
+                    <label>新用户名</label>
+                    <small style="color: #666; display: block; margin-top: 4px;">留空则不修改</small>
+                    <input type="text" id="newUsername" placeholder="留空不修改">
+                </div>
+                <div class="form-group">
+                    <label>新密码</label>
+                    <small style="color: #666; display: block; margin-top: 4px;">留空则不修改，至少6位</small>
+                    <input type="password" id="newPassword" placeholder="留空不修改">
+                </div>
+                <div class="form-group">
+                    <label>确认新密码</label>
+                    <input type="password" id="confirmPassword" placeholder="再次输入新密码">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('changePasswordModal')">取消</button>
+                    <button type="submit" class="btn btn-success">确认修改</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // API配置
+        // ============================================
+        const API_BASE_URL = 'http://localhost:5000/api/v1';
+
+        async function apiRequest(endpoint, options = {}) {
+            const url = `${API_BASE_URL}${endpoint}`;
+            const defaultOptions = {
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            };
+            const finalOptions = { ...defaultOptions, ...options };
+
+            try {
+                const response = await fetch(url, finalOptions);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || '请求失败');
+                }
+
+                if (!data.success) {
+                    throw new Error(data.error || '操作失败');
+                }
+
+                return data;
+            } catch (error) {
+                console.error(`API请求失败: ${url}`, error);
+                throw error;
+            }
+        }
+
+        // ============================================
+        // 登录/注册功能
+        // ============================================
+        let currentUser = null;
+
+        async function checkLoginStatus() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/users/check-auth`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+
+                // 严格检查：必须返回authenticated=true且有用户数据才算已登录
+                if (data && data.success === true && data.authenticated === true && data.data && data.data.id) {
+                    currentUser = data.data;
+                    showAdminPage(data.data);
+                } else {
+                    // 未登录或登录无效，显示登录页
+                    currentUser = null;
+                    showLoginPage();
+                }
+            } catch (error) {
+                console.error('检查登录状态失败:', error);
+                currentUser = null;
+                showLoginPage();
+            }
+        }
+
+        function showLoginPage() {
+            document.getElementById('loginPage').style.display = 'flex';
+            document.getElementById('adminPage').style.display = 'none';
+        }
+
+        async function showAdminPage(user) {
+            currentUser = user;
+            document.getElementById('loginPage').style.display = 'none';
+            document.getElementById('adminPage').style.display = 'block';
+            document.getElementById('currentUsername').textContent = user.username;
+
+            // 获取完整用户信息（包括权限）
+            try {
+                const meResponse = await apiRequest('/users/me');
+                currentUser = meResponse.data;
+                updateUIByPermission();
+            } catch (error) {
+                console.error('获取用户信息失败:', error);
+            }
+
+            loadDashboard();
+        }
+
+        // 根据权限更新UI
+        function updateUIByPermission() {
+            const isAdmin = currentUser?.is_admin || false;
+
+            // 用户管理：只有admin可见
+            const usersNavItem = document.querySelector('.nav-item[data-page="users"]');
+            if (usersNavItem) {
+                usersNavItem.style.display = isAdmin ? 'flex' : 'none';
+            }
+        }
+
+        // 检查是否有删除权限
+        function canDeleteItem(itemOwnerId) {
+            // admin可以删除任何内容
+            if (currentUser?.is_admin) return true;
+            // 普通用户只能删除自己的内容
+            return itemOwnerId === currentUser?.id;
+        }
+
+        // 清除登录缓存（解决cookie残留问题）
+        async function clearLoginCache() {
+            if (!confirm('确定要清除登录缓存吗？这将退出当前登录状态。')) {
+                return;
+            }
+
+            try {
+                // 先尝试登出
+                await fetch(`${API_BASE_URL}/users/logout`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+            } catch (error) {
+                console.log('登出请求失败:', error);
+            }
+
+            // 无论登出成功与否，都重置状态
+            currentUser = null;
+
+            // 清空表单
+            if (document.getElementById('username')) {
+                document.getElementById('username').value = '';
+            }
+            if (document.getElementById('password')) {
+                document.getElementById('password').value = '';
+            }
+
+            // 清空所有消息提示
+            document.getElementById('loginError').style.display = 'none';
+            document.getElementById('loginSuccess').style.display = 'none';
+
+            // 确保显示登录页面
+            showLoginPage();
+
+            alert('登录缓存已清除，请重新登录');
+        }
+
+        function showRegisterForm() {
+            document.getElementById('authTitle').textContent = '用户注册';
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('registerForm').style.display = 'block';
+            document.getElementById('forgotPasswordForm').style.display = 'none';
+            document.getElementById('confirmResetForm').style.display = 'none';
+            // 清空消息
+            document.getElementById('loginError').style.display = 'none';
+            document.getElementById('registerError').style.display = 'none';
+            document.getElementById('forgotError').style.display = 'none';
+            document.getElementById('forgotSuccess').style.display = 'none';
+        }
+
+        function showLoginForm() {
+            document.getElementById('authTitle').textContent = '后台登录';
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('registerForm').style.display = 'none';
+            document.getElementById('forgotPasswordForm').style.display = 'none';
+            document.getElementById('confirmResetForm').style.display = 'none';
+            // 清空消息
+            document.getElementById('loginError').style.display = 'none';
+            document.getElementById('registerError').style.display = 'none';
+        }
+
+        function showForgotPasswordForm() {
+            document.getElementById('authTitle').textContent = '重置密码';
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('registerForm').style.display = 'none';
+            document.getElementById('forgotPasswordForm').style.display = 'block';
+            document.getElementById('confirmResetForm').style.display = 'none';
+            // 清空消息
+            document.getElementById('loginError').style.display = 'none';
+            document.getElementById('forgotError').style.display = 'none';
+        }
+
+        // 登录表单
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const errorEl = document.getElementById('loginError');
+            const successEl = document.getElementById('loginSuccess');
+
+            errorEl.style.display = 'none';
+            successEl.style.display = 'none';
+
+            if (!username || !password) {
+                showError('loginError', '用户名和密码不能为空');
+                return;
+            }
+
+            try {
+                const response = await apiRequest('/users/login', {
+                    method: 'POST',
+                    body: JSON.stringify({ username, password })
+                });
+
+                showSuccess('loginSuccess', '登录成功！正在进入后台...');
+                setTimeout(() => {
+                    showAdminPage(response.data);
+                }, 500);
+            } catch (error) {
+                showError('loginError', error.message || '登录失败，请检查用户名和密码');
+            }
+        });
+
+        // 注册表单
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('regUsername').value.trim();
+            const email = document.getElementById('regEmail').value.trim();
+            const password = document.getElementById('regPassword').value;
+            const passwordConfirm = document.getElementById('regPasswordConfirm').value;
+
+            hideError('registerError');
+            hideError('registerSuccess');
+
+            // 验证
+            if (!username || !password) {
+                showError('registerError', '用户名和密码不能为空');
+                return;
+            }
+
+            if (password !== passwordConfirm) {
+                showError('registerError', '两次输入的密码不一致');
+                return;
+            }
+
+            if (password.length < 6) {
+                showError('registerError', '密码长度不能少于6位');
+                return;
+            }
+
+            try {
+                await apiRequest('/users/register', {
+                    method: 'POST',
+                    body: JSON.stringify({ username, password, email })
+                });
+
+                showSuccess('registerSuccess', '注册成功！正在自动登录...');
+
+                // 自动登录
+                setTimeout(async () => {
+                    try {
+                        const response = await apiRequest('/users/login', {
+                            method: 'POST',
+                            body: JSON.stringify({ username, password })
+                        });
+                        showAdminPage(response.data);
+                    } catch (error) {
+                        showLoginForm();
+                    }
+                }, 1000);
+
+            } catch (error) {
+                showError('registerError', error.message || '注册失败');
+            }
+        });
+
+        // 登出
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            if (confirm('确定要退出登录吗？')) {
+                try {
+                    await apiRequest('/users/logout', { method: 'POST' });
+                    currentUser = null;
+                    document.getElementById('username').value = '';
+                    document.getElementById('password').value = '';
+                    showLoginPage();
+                } catch (error) {
+                    alert('退出失败: ' + error.message);
+                }
+            }
+        });
+
+        // ============================================
+        // 导航功能
+        // ============================================
+        function navigateTo(page) {
+            // 先尝试查找主导航项
+            let navItem = document.querySelector(`.nav-item[data-page="${page}"]`);
+            // 如果没找到，查找子菜单项
+            if (!navItem) {
+                navItem = document.querySelector(`.submenu-item[data-page="${page}"]`);
+                // 如果找到子菜单项，展开其父菜单
+                if (navItem) {
+                    const parentSubmenu = navItem.closest('.submenu');
+                    if (parentSubmenu) {
+                        parentSubmenu.classList.add('expanded');
+                        const parentNavItem = parentSubmenu.previousElementSibling;
+                        if (parentNavItem && parentNavItem.classList.contains('has-submenu')) {
+                            parentNavItem.classList.add('expanded');
+                        }
+                    }
+                }
+            }
+            if (navItem) {
+                navItem.click();
+            }
+        }
+
+        function toggleSubmenu(element) {
+            element.classList.toggle('expanded');
+            const submenu = element.nextElementSibling;
+            if (submenu && submenu.classList.contains('submenu')) {
+                submenu.classList.toggle('expanded');
+            }
+        }
+
+        // 主导航项点击事件
+        document.querySelectorAll('.nav-item[data-page]').forEach(item => {
+            item.addEventListener('click', () => {
+                const page = item.dataset.page;
+
+                // 更新激活状态
+                document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+                document.querySelectorAll('.submenu-item').forEach(n => n.classList.remove('active'));
+                item.classList.add('active');
+
+                // 切换页面
+                document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
+                const section = document.getElementById(page + 'Section');
+                if (section) {
+                    section.classList.add('active');
+                }
+
+                // 加载对应数据
+                switch(page) {
+                    case 'dashboard': loadDashboard(); break;
+                    case 'posts': loadPosts(); break;
+                    case 'categories': loadCategories(); break;
+                    case 'users': loadUsers(); break;
+                    case 'upload': initUploadTabs(); break;
+                    case 'media-manage': loadMediaManage(); break;
+                    case 'resource-manage': loadResourceManage(); break;
+                }
+            });
+        });
+
+        // 子菜单项点击事件
+        document.querySelectorAll('.submenu-item[data-page]').forEach(item => {
+            item.addEventListener('click', () => {
+                const page = item.dataset.page;
+
+                // 更新激活状态
+                document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+                document.querySelectorAll('.submenu-item').forEach(n => n.classList.remove('active'));
+                item.classList.add('active');
+
+                // 切换页面
+                document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
+                const section = document.getElementById(page + 'Section');
+                if (section) {
+                    section.classList.add('active');
+                }
+
+                // 加载对应数据
+                switch(page) {
+                    case 'posts': loadPosts(); break;
+                    case 'categories': loadCategories(); break;
+                    case 'upload': initUploadTabs(); break;
+                    case 'media-manage': loadMediaManage(); break;
+                    case 'resource-manage': loadResourceManage(); break;
+                }
+            });
+        });
+
+        // ============================================
+        // 忘记密码功能
+        // ============================================
+        document.getElementById('forgotPasswordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('forgotUsername').value.trim();
+            const email = document.getElementById('forgotEmail').value.trim();
+
+            hideError('forgotError');
+            hideError('forgotSuccess');
+
+            if (!username || !email) {
+                showError('forgotError', '用户名和邮箱不能为空');
+                return;
+            }
+
+            try {
+                const response = await apiRequest('/users/reset-password', {
+                    method: 'POST',
+                    body: JSON.stringify({ username, email })
+                });
+
+                // 显示重置码并切换到确认重置表单
+                showSuccess('forgotSuccess', '验证成功！正在跳转到设置新密码...');
+                setTimeout(() => {
+                    document.getElementById('resetUserId').value = response.data.user_id;
+                    document.getElementById('resetCode').value = response.data.reset_code;
+                    showConfirmResetForm();
+                }, 1000);
+            } catch (error) {
+                showError('forgotError', error.message || '重置失败');
+            }
+        });
+
+        // 确认重置表单
+        document.getElementById('confirmResetForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const resetCode = document.getElementById('resetCode').value.trim();
+            const newPassword = document.getElementById('resetNewPassword').value;
+            const confirmPassword = document.getElementById('resetConfirmPassword').value;
+            const userId = document.getElementById('resetUserId').value;
+
+            hideError('confirmResetError');
+            hideError('confirmResetSuccess');
+
+            if (!resetCode || !newPassword || !confirmPassword) {
+                showError('confirmResetError', '所有字段都不能为空');
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                showError('confirmResetError', '两次输入的密码不一致');
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                showError('confirmResetError', '密码长度不能少于6位');
+                return;
+            }
+
+            try {
+                await apiRequest('/users/confirm-reset', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        reset_code: resetCode,
+                        new_password: newPassword,
+                        user_id: userId
+                    })
+                });
+
+                showSuccess('confirmResetSuccess', '密码重置成功！正在跳转到登录...');
+                setTimeout(() => {
+                    showLoginForm();
+                }, 2000);
+            } catch (error) {
+                showError('confirmResetError', error.message || '重置失败');
+            }
+        });
+
+        function showConfirmResetForm() {
+            document.getElementById('authTitle').textContent = '设置新密码';
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('registerForm').style.display = 'none';
+            document.getElementById('forgotPasswordForm').style.display = 'none';
+            document.getElementById('confirmResetForm').style.display = 'block';
+        }
+
+        // ============================================
+        // 修改个人信息功能
+        // ============================================
+        function showChangePasswordModal() {
+            const modal = document.getElementById('changePasswordModal');
+            // 清空表单
+            document.getElementById('changePasswordForm').reset();
+            // 填充当前用户名
+            document.getElementById('newUsername').placeholder = `当前用户名: ${currentUser?.username || ''}`;
+            modal.classList.add('active');
+        }
+
+        document.getElementById('changePasswordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const oldPassword = document.getElementById('oldPassword').value;
+            const newUsername = document.getElementById('newUsername').value.trim();
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            if (!oldPassword) {
+                alert('当前密码不能为空');
+                return;
+            }
+
+            // 检查是否至少要修改一项
+            if (!newUsername && !newPassword) {
+                alert('请至少填写一项要修改的内容（新用户名或新密码）');
+                return;
+            }
+
+            // 验证新用户名
+            if (newUsername) {
+                if (newUsername.length < 3) {
+                    alert('新用户名长度不能少于3位');
+                    return;
+                }
+                if (newUsername === currentUser?.username) {
+                    alert('新用户名不能与当前用户名相同');
+                    return;
+                }
+            }
+
+            // 验证新密码
+            if (newPassword) {
+                if (newPassword !== confirmPassword) {
+                    alert('两次输入的新密码不一致');
+                    return;
+                }
+                if (newPassword.length < 6) {
+                    alert('新密码长度不能少于6位');
+                    return;
+                }
+            }
+
+            try {
+                // 先验证当前密码是否正确
+                const meResponse = await apiRequest('/users/me');
+
+                // 构建更新数据
+                const updateData = { password: oldPassword };
+                if (newUsername) updateData.username = newUsername;
+                if (newPassword) updateData.new_password = newPassword;
+
+                // 调用更新API
+                await apiRequest(`/users/${meResponse.data.id}/`, {
+                    method: 'PUT',
+                    body: JSON.stringify(updateData)
+                });
+
+                closeModal('changePasswordModal');
+                alert('个人信息修改成功！请重新登录');
+                // 登出并返回登录页
+                await apiRequest('/users/logout', { method: 'POST' });
+                currentUser = null;
+                showLoginPage();
+            } catch (error) {
+                alert('修改失败: ' + error.message);
+            }
+        });
+
+        // ============================================
+        // 上传功能
+        // ============================================
+        function initUploadTabs() {
+            const tabs = document.querySelectorAll('.upload-tab-btn');
+            tabs.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const tab = btn.dataset.tab;
+                    tabs.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+
+                    document.querySelectorAll('.upload-tab-content').forEach(content => content.classList.remove('active'));
+                    document.getElementById(tab + 'Tab').classList.add('active');
+                });
+            });
+        }
+
+        // 视频上传
+        document.getElementById('videoForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await uploadFile('media', {
+                file: document.getElementById('videoFile').files[0],
+                title: document.getElementById('videoTitle').value,
+                description: document.getElementById('videoDescription').value,
+                type: 'video',
+                thumbnail: document.getElementById('videoThumbnail').files[0] || null
+            }, 'videoResult', 'videoForm');
+        });
+
+        // 图片上传
+        document.getElementById('imageForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await uploadFile('media', {
+                file: document.getElementById('imageFile').files[0],
+                title: document.getElementById('imageTitle').value,
+                description: document.getElementById('imageDescription').value,
+                type: 'image'
+            }, 'imageResult', 'imageForm');
+        });
+
+        // 资料上传
+        document.getElementById('resourceForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await uploadFile('resources', {
+                file: document.getElementById('resourceFile').files[0],
+                title: document.getElementById('resourceTitle').value,
+                description: document.getElementById('resourceDescription').value
+            }, 'resourceResult', 'resourceForm');
+        });
+
+        // 上传文件
+        async function uploadFile(endpoint, data, resultId, formId) {
+            const resultEl = document.getElementById(resultId);
+            resultEl.className = 'message';
+            resultEl.style.display = 'none';
+
+            const formData = new FormData();
+            formData.append('file', data.file);
+            formData.append('title', data.title);
+            formData.append('description', data.description || '');
+            if (data.type) {
+                formData.append('type', data.type);
+            }
+            if (data.thumbnail) {
+                formData.append('thumbnail', data.thumbnail);
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/${endpoint}/upload`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    resultEl.textContent = '上传成功！';
+                    resultEl.className = 'message success-msg';
+                    resultEl.style.display = 'block';
+                    if (formId) {
+                        document.getElementById(formId).reset();
+                    }
+                } else {
+                    resultEl.textContent = '上传失败：' + result.error;
+                    resultEl.className = 'message error-msg';
+                    resultEl.style.display = 'block';
+                }
+            } catch (error) {
+                resultEl.textContent = '上传失败：' + error.message;
+                resultEl.className = 'message error-msg';
+                resultEl.style.display = 'block';
+            }
+        }
+
+        // ============================================
+        // 概览数据加载
+        // ============================================
+        async function loadDashboard() {
+            try {
+                const response = await apiRequest('/system/info');
+                const stats = response.data.database_stats;
+
+                document.getElementById('statPosts').textContent = stats.posts || 0;
+                document.getElementById('statResources').textContent = stats.resources || 0;
+                document.getElementById('statMedia').textContent = stats.media || 0;
+                document.getElementById('statUsers').textContent = stats.users || 0;
+            } catch (error) {
+                console.error('加载概览数据失败:', error);
+            }
+        }
+
+        // ============================================
+        // 文章管理
+        // ============================================
+        let currentPostFilter = 'all';
+
+        async function loadPosts(status = 'all') {
+            const tbody = document.getElementById('postsTableBody');
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">加载中...</td></tr>';
+
+            try {
+                const response = await apiRequest(`/posts/?page=1&limit=50&status=${status}`);
+                const posts = response.data;
+
+                if (posts.length === 0) {
+                    const emptyText = status === 'all' ? '暂无文章，点击上方"新建文章"按钮创建'
+                                    : status === 'published' ? '暂无已发布的文章'
+                                    : '暂无草稿文章';
+                    tbody.innerHTML = `<tr><td colspan="7" class="empty-state">${emptyText}</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = posts.map(post => {
+                    const canDelete = currentUser?.is_admin || post.author_id === currentUser?.id;
+                    return `
+                    <tr>
+                        <td>${post.id}</td>
+                        <td>${escapeHtml(post.title)}</td>
+                        <td>${post.category_name || '未分类'}</td>
+                        <td>${post.status === 'published' ? '已发布' : '草稿'}</td>
+                        <td>${post.view_count}</td>
+                        <td>${formatDate(post.created_at)}</td>
+                        <td>
+                            <div class="actions">
+                                <button class="btn btn-sm" onclick="editPost(${post.id})">编辑</button>
+                                ${canDelete ? `<button class="btn btn-sm btn-danger" onclick="deletePost(${post.id})">删除</button>` : ''}
+                            </div>
+                        </td>
+                    </tr>
+                `}).join('');
+            } catch (error) {
+                tbody.innerHTML = `<tr><td colspan="7" class="empty-state">加载失败: ${error.message}</td></tr>`;
+            }
+        }
+
+        function filterPosts(status) {
+            currentPostFilter = status;
+
+            // 更新按钮状态
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.status === status) {
+                    btn.classList.add('active');
+                }
+            });
+
+            // 重新加载文章列表
+            loadPosts(status);
+        }
+
+        async function showPostModal(postId = null) {
+            const modal = document.getElementById('postModal');
+            const title = document.getElementById('postModalTitle');
+
+            // 加载分类选项
+            try {
+                const response = await apiRequest('/system/categories');
+                const categories = response.data.filter(c => c.type === 'post');
+
+                const select = document.getElementById('postCategory');
+                select.innerHTML = '<option value="">未分类</option>' +
+                    categories.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+            } catch (error) {
+                console.error('加载分类失败:', error);
+            }
+
+            if (postId) {
+                title.textContent = '编辑文章';
+                try {
+                    const response = await apiRequest(`/posts/${postId}`);
+                    const post = response.data;
+
+                    document.getElementById('postId').value = post.id;
+                    document.getElementById('postTitle').value = post.title;
+                    document.getElementById('postSummary').value = post.summary || '';
+                    document.getElementById('postCategory').value = post.category_id || '';
+                    document.getElementById('postContent').value = post.content;
+                    document.getElementById('postStatus').value = post.status;
+                } catch (error) {
+                    alert('加载文章失败: ' + error.message);
+                    return;
+                }
+            } else {
+                title.textContent = '新建文章';
+                document.getElementById('postForm').reset();
+                document.getElementById('postId').value = '';
+            }
+
+            modal.classList.add('active');
+        }
+
+        function editPost(id) {
+            showPostModal(id);
+        }
+
+        async function deletePost(id) {
+            if (!confirm('确定要删除这篇文章吗？')) return;
+
+            try {
+                await apiRequest(`/posts/${id}`, { method: 'DELETE' });
+                alert('删除成功');
+                loadPosts();
+            } catch (error) {
+                alert('删除失败: ' + error.message);
+            }
+        }
+
+        document.getElementById('postForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const postId = document.getElementById('postId').value;
+            const data = {
+                title: document.getElementById('postTitle').value,
+                summary: document.getElementById('postSummary').value,
+                category_id: document.getElementById('postCategory').value || null,
+                content: document.getElementById('postContent').value,
+                status: document.getElementById('postStatus').value
+            };
+
+            try {
+                if (postId) {
+                    await apiRequest(`/posts/${postId}/`, {
+                        method: 'PUT',
+                        body: JSON.stringify(data)
+                    });
+                } else {
+                    await apiRequest('/posts/', {
+                        method: 'POST',
+                        body: JSON.stringify(data)
+                    });
+                }
+
+                closeModal('postModal');
+                alert('保存成功');
+                loadPosts();
+            } catch (error) {
+                alert('保存失败: ' + error.message);
+            }
+        });
+
+        // ============================================
+        // 分类管理
+        // ============================================
+        async function loadCategories() {
+            const tbody = document.getElementById('categoriesTableBody');
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">加载中...</td></tr>';
+
+            try {
+                const response = await apiRequest('/system/categories');
+                const categories = response.data;
+
+                if (categories.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">暂无分类</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = categories.map(cat => `
+                    <tr>
+                        <td>${cat.id}</td>
+                        <td>${escapeHtml(cat.name)}</td>
+                        <td>${cat.type === 'post' ? '文章' : cat.type === 'resource' ? '资源' : '媒体'}</td>
+                        <td>${escapeHtml(cat.description || '-')}</td>
+                        <td>
+                            <div class="actions">
+                                <span style="color: #999; font-size: 12px;">系统预设</span>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                tbody.innerHTML = `<tr><td colspan="5" class="empty-state">加载失败: ${error.message}</td></tr>`;
+            }
+        }
+
+        function showCategoryModal() {
+            document.getElementById('categoryModalTitle').textContent = '新建分类';
+            document.getElementById('categoryForm').reset();
+            document.getElementById('categoryId').value = '';
+            document.getElementById('categoryModal').classList.add('active');
+        }
+
+        document.getElementById('categoryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const data = {
+                name: document.getElementById('categoryName').value,
+                type: document.getElementById('categoryType').value,
+                description: document.getElementById('categoryDescription').value
+            };
+
+            try {
+                await apiRequest('/system/categories', {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+                closeModal('categoryModal');
+                alert('创建成功');
+                loadCategories();
+            } catch (error) {
+                alert('操作失败: ' + error.message);
+            }
+        });
+
+        // ============================================
+        // 视频图片管理
+        // ============================================
+        let currentMediaFilter = 'all';
+
+        async function loadMediaManage(type = 'all') {
+            const tbody = document.getElementById('mediaManageTableBody');
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">加载中...</td></tr>';
+
+            try {
+                const params = { page: 1, limit: 100 };
+                if (type !== 'all') {
+                    params.type = type;
+                }
+                const queryString = Object.keys(params).map(key => `${key}=${params[key]}`).join('&');
+                const response = await apiRequest(`/media/?${queryString}`);
+                const mediaList = response.data;
+
+                if (mediaList.length === 0) {
+                    const emptyText = type === 'all' ? '暂无媒体文件'
+                                    : type === 'image' ? '暂无图片'
+                                    : '暂无视频';
+                    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${emptyText}</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = mediaList.map(media => {
+                    const canDelete = currentUser?.is_admin;
+                    return `
+                    <tr>
+                        <td>${media.id}</td>
+                        <td>${media.type === 'image' ? '图片' : '视频'}</td>
+                        <td>${escapeHtml(media.title)}</td>
+                        <td>${escapeHtml(media.description || '-')}</td>
+                        <td>${formatDate(media.created_at)}</td>
+                        <td>
+                            <div class="actions">
+                                <button class="btn btn-sm" onclick="previewMedia(${media.id}, '${media.type}')">预览</button>
+                                ${canDelete ? `<button class="btn btn-sm btn-danger" onclick="deleteMedia(${media.id})">删除</button>` : ''}
+                            </div>
+                        </td>
+                    </tr>
+                `}).join('');
+            } catch (error) {
+                tbody.innerHTML = `<tr><td colspan="6" class="empty-state">加载失败: ${error.message}</td></tr>`;
+            }
+        }
+
+        function filterMediaManage(type) {
+            currentMediaFilter = type;
+
+            // 更新按钮状态
+            document.querySelectorAll('#media-manageSection .filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.type === type) {
+                    btn.classList.add('active');
+                }
+            });
+
+            // 重新加载媒体列表
+            loadMediaManage(type);
+        }
+
+        function previewMedia(id, type) {
+            const url = `${API_BASE_URL}/media/${id}/view`;
+            if (type === 'image') {
+                window.open(url, '_blank');
+            } else {
+                window.open(url, '_blank');
+            }
+        }
+
+        async function deleteMedia(id) {
+            if (!confirm('确定要删除这个媒体文件吗？')) return;
+
+            try {
+                await apiRequest(`/media/${id}`, { method: 'DELETE' });
+                alert('删除成功');
+                loadMediaManage(currentMediaFilter);
+            } catch (error) {
+                alert('删除失败: ' + error.message);
+            }
+        }
+
+        // ============================================
+        // 资料管理
+        // ============================================
+        async function loadResourceManage() {
+            const tbody = document.getElementById('resourceManageTableBody');
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">加载中...</td></tr>';
+
+            try {
+                const response = await apiRequest('/resources/?page=1&limit=100');
+                const resources = response.data;
+
+                if (resources.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">暂无学习资料</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = resources.map(resource => {
+                    const canDelete = currentUser?.is_admin;
+                    return `
+                    <tr>
+                        <td>${resource.id}</td>
+                        <td>${escapeHtml(resource.title)}</td>
+                        <td>${escapeHtml(resource.description || '-')}</td>
+                        <td>${formatFileSize(resource.file_size)}</td>
+                        <td>${resource.download_count}</td>
+                        <td>${formatDate(resource.created_at)}</td>
+                        <td>
+                            <div class="actions">
+                                <button class="btn btn-sm" onclick="downloadResource(${resource.id})">下载</button>
+                                ${canDelete ? `<button class="btn btn-sm btn-danger" onclick="deleteResource(${resource.id})">删除</button>` : ''}
+                            </div>
+                        </td>
+                    </tr>
+                `}).join('');
+            } catch (error) {
+                tbody.innerHTML = `<tr><td colspan="7" class="empty-state">加载失败: ${error.message}</td></tr>`;
+            }
+        }
+
+        function downloadResource(id) {
+            window.open(`${API_BASE_URL}/resources/${id}/download`, '_blank');
+        }
+
+        async function deleteResource(id) {
+            if (!confirm('确定要删除这个资料吗？')) return;
+
+            try {
+                await apiRequest(`/resources/${id}`, { method: 'DELETE' });
+                alert('删除成功');
+                loadResourceManage();
+            } catch (error) {
+                alert('删除失败: ' + error.message);
+            }
+        }
+
+        // ============================================
+        // 用户管理
+        // ============================================
+        async function loadUsers() {
+            const tbody = document.getElementById('usersTableBody');
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">加载中...</td></tr>';
+
+            // 只有admin可以查看用户管理
+            if (!currentUser?.is_admin) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">没有权限访问</td></tr>';
+                return;
+            }
+
+            try {
+                const response = await apiRequest('/users/?page=1&limit=50');
+                const users = response.data;
+
+                if (users.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">暂无用户</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = users.map(user => `
+                    <tr>
+                        <td>${user.id}</td>
+                        <td>${escapeHtml(user.username)}${user.id === currentUser?.id ? ' <span style="color: #28a745;">(当前用户)</span>' : ''}</td>
+                        <td>${escapeHtml(user.email || '-')}</td>
+                        <td>${formatDate(user.created_at)}</td>
+                        <td>
+                            <div class="actions">
+                                ${user.id !== currentUser?.id ? `<button class="btn btn-sm btn-danger" onclick="deleteUser(${user.id})">删除</button>` : '<span style="color: #999;">-</span>'}
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                tbody.innerHTML = `<tr><td colspan="5" class="empty-state">加载失败: ${error.message}</td></tr>`;
+            }
+        }
+
+        async function deleteUser(id) {
+            if (!confirm('确定要删除这个用户吗？删除后无法恢复！')) return;
+
+            try {
+                await apiRequest(`/users/${id}`, { method: 'DELETE' });
+                alert('删除成功');
+                loadUsers();
+            } catch (error) {
+                alert('删除失败: ' + error.message);
+            }
+        }
+
+        // ============================================
+        // 工具函数
+        // ============================================
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        function showError(elementId, message) {
+            const el = document.getElementById(elementId);
+            el.textContent = message;
+            el.className = 'message error-msg';
+            el.style.display = 'block';
+        }
+
+        function showSuccess(elementId, message) {
+            const el = document.getElementById(elementId);
+            el.textContent = message;
+            el.className = 'message success-msg';
+            el.style.display = 'block';
+        }
+
+        function hideError(elementId) {
+            const el = document.getElementById(elementId);
+            el.style.display = 'none';
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('zh-CN');
+        }
+
+        function formatFileSize(bytes) {
+            if (!bytes) return '-';
+            const units = ['B', 'KB', 'MB', 'GB'];
+            let size = bytes;
+            let unitIndex = 0;
+            while (size >= 1024 && unitIndex < units.length - 1) {
+                size /= 1024;
+                unitIndex++;
+            }
+            return size.toFixed(2) + ' ' + units[unitIndex];
+        }
+
+        // 点击模态框背景关闭
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('active');
+                }
+            });
+        });
+
+        // ============================================
+        // 页面初始化
+        // ============================================
+        checkLoginStatus();
+    </script>
+</body>
+</html>

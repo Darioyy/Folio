@@ -1,0 +1,42 @@
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info
+venv/
+.venv/
+*.pyc
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+.claude/
+
+# 日志
+*.log
+
+# 上传文件（保留.gitkeep）
+uploads/*
+!uploads/.gitkeep
+
+# 系统文件
+.DS_Store
+Thumbs.db
+nul
+
+# 文档（可选，看你是否需要）
+# README.md
+# docs/

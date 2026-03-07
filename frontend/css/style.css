@@ -359,7 +359,6 @@ main {
 }
 
 .empty {
-    text-align: center;
     color: var(--text-secondary);
     padding: 2rem;
 }

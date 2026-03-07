@@ -1,0 +1,55 @@
+services:
+  # MySQL 数据库
+  mysql:
+    image: mysql:8.0
+    container_name: ai_web_dev_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: YourRootPassword123!
+      MYSQL_DATABASE: ai_web_dev
+      MYSQL_USER: ai_web_dev_user
+      MYSQL_PASSWORD: YourPassword123!
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+  # Flask 后端
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ai_web_dev_backend
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: ai_web_dev_user
+      MYSQL_PASSWORD: YourPassword123!
+      MYSQL_DATABASE: ai_web_dev
+      SECRET_KEY: ai-web-dev-docker-secret
+    depends_on:
+      - mysql
+    volumes:
+      - ./uploads:/app/uploads
+
+  # Nginx 前端
+  nginx:
+    image: nginx:alpine
+    container_name: ai_web_dev_nginx
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./uploads:/usr/share/nginx/uploads
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:

@@ -4,9 +4,10 @@
 """
 import os
 import uuid
-from flask import request, jsonify, send_file
+from flask import request, jsonify, send_file, g
 from werkzeug.utils import secure_filename
 from api import resource_bp
+from api.auth import login_required, is_admin_user
 from app import get_db_connection
 from config import Config
 
@@ -137,12 +138,14 @@ def get_resource(resource_id):
 
 
 @resource_bp.route('/upload', methods=['POST'])
+@login_required
 def upload_resource():
     """
-    上传资源文件
+    上传资源文件（需要登录）
     POST /api/v1/resources/upload
     请求格式：multipart/form-data
-    表单字段：file, title, description, category_id, uploader_id
+    表单字段：file, title, description, category_id
+    uploader_id自动从session获取
     """
     try:
         # 检查是否有文件
@@ -163,12 +166,12 @@ def upload_resource():
         title = request.form.get('title')
         description = request.form.get('description', '')
         category_id = request.form.get('category_id')
-        uploader_id = request.form.get('uploader_id')
+        uploader_id = g.user_id  # 使用当前登录用户
 
-        if not title or not uploader_id:
+        if not title:
             return jsonify({
                 'success': False,
-                'error': 'title 和 uploader_id 不能为空'
+                'error': 'title 不能为空'
             }), 400
 
         # 验证文件类型
@@ -191,7 +194,7 @@ def upload_resource():
         file_size = os.path.getsize(file_path)
         file_type = file.mimetype or 'application/octet-stream'
 
-        # 保存到数据库（保留原始文件名，避免中文乱码）
+        # 保存到数据库
         conn = get_db_connection()
         with conn.cursor() as cursor:
             cursor.execute("""
@@ -201,7 +204,7 @@ def upload_resource():
                 title,
                 description,
                 file_path,
-                file.filename,  # 保留原始文件名
+                file.filename,
                 file_size,
                 file_type,
                 category_id,
@@ -214,8 +217,7 @@ def upload_resource():
             'message': '文件上传成功',
             'data': {
                 'id': cursor.lastrowid,
-                'title': title,
-                'original_filename': original_filename
+                'title': title
             }
         }), 201
 
@@ -276,17 +278,19 @@ def download_resource(resource_id):
 
 
 @resource_bp.route('/<int:resource_id>', methods=['DELETE'])
+@login_required
 def delete_resource(resource_id):
     """
-    删除资源
+    删除资源（需要登录）
     DELETE /api/v1/resources/{id}
     同时删除服务器上的文件
+    权限：只有admin或上传者可以删除
     """
     try:
         conn = get_db_connection()
         with conn.cursor() as cursor:
-            # 获取资源信息
-            cursor.execute("SELECT file_path FROM resources WHERE id = %s", (resource_id,))
+            # 获取资源信息和上传者信息
+            cursor.execute("SELECT file_path, uploader_id FROM resources WHERE id = %s", (resource_id,))
             resource = cursor.fetchone()
 
             if not resource:
@@ -294,6 +298,13 @@ def delete_resource(resource_id):
                     'success': False,
                     'error': '资源不存在'
                 }), 404
+
+            # 权限检查：只有admin或上传者可以删除
+            if not is_admin_user(g.user_id) and resource['uploader_id'] != g.user_id:
+                return jsonify({
+                    'success': False,
+                    'error': '没有权限删除此资源'
+                }), 403
 
             # 删除数据库记录
             cursor.execute("DELETE FROM resources WHERE id = %s", (resource_id,))
