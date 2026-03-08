@@ -4,10 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="0169a72c-5b74-4acd-b1a7-94aa38dc34f3" name="更改" comment="本地测试v1.2">
+    <list default="true" id="0169a72c-5b74-4acd-b1a7-94aa38dc34f3" name="更改" comment="本地测试v1.2.1">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/admin.html" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/admin.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/restart-docker.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/AI_GUIDE.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/STATUS.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/TODO.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/index.html" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -28,31 +30,32 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ASKED_MARK_IGNORED_FILES_AS_EXCLUDED": "true",
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "Notification.DisplayName-DoNotAsk-ClaudeCodePluginSetup": "ClaudeCodePluginSetup",
-    "Notification.DoNotAsk-ClaudeCodePluginSetup": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "master",
-    "last_opened_file_path": "D:/Program/Code/Python/ai_web_dev/frontend",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ASKED_MARK_IGNORED_FILES_AS_EXCLUDED&quot;: &quot;true&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;Notification.DisplayName-DoNotAsk-ClaudeCodePluginSetup&quot;: &quot;ClaudeCodePluginSetup&quot;,
+    &quot;Notification.DoNotAsk-ClaudeCodePluginSetup&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;last_opened_file_path&quot;: &quot;D:/Program/Code/Python/ai_web_dev/frontend&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="D:\Program\Code\Python\ai_web_dev\frontend" />
       <recent name="D:\Program\Code\Python\ai_web_dev\uploads\media\videos" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="D:\Program\Code\Python\ai_web_dev\.claude" />
       <recent name="D:\Program\Code\Python\ai_web_dev\docs" />
     </key>
   </component>
@@ -79,7 +82,11 @@
       <workItem from="1772883857954" duration="11229000" />
       <workItem from="1772899190082" duration="1053000" />
       <workItem from="1772901873071" duration="4146000" />
-      <workItem from="1772941658341" duration="19884000" />
+      <workItem from="1772941658341" duration="20038000" />
+      <workItem from="1772973650623" duration="377000" />
+      <workItem from="1772974149353" duration="12000" />
+      <workItem from="1772980236760" duration="25000" />
+      <workItem from="1772980299816" duration="3052000" />
     </task>
     <task id="LOCAL-00001" summary="本地测试v1.0">
       <option name="closed" value="true" />
@@ -105,7 +112,23 @@
       <option name="project" value="LOCAL" />
       <updated>1772968191492</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="本地测试v1.2.1">
+      <option name="closed" value="true" />
+      <created>1772969732554</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1772969732554</updated>
+    </task>
+    <task id="LOCAL-00005" summary="本地测试v1.2.1">
+      <option name="closed" value="true" />
+      <created>1772974019040</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1772974019040</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -115,6 +138,7 @@
     <MESSAGE value="本地测试v1.0" />
     <MESSAGE value="本地测试v1.1" />
     <MESSAGE value="本地测试v1.2" />
-    <option name="LAST_COMMIT_MESSAGE" value="本地测试v1.2" />
+    <MESSAGE value="本地测试v1.2.1" />
+    <option name="LAST_COMMIT_MESSAGE" value="本地测试v1.2.1" />
   </component>
 </project>
