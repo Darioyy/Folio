@@ -41,8 +41,50 @@ function initNavigation() {
 
             // 加载对应数据
             loadSectionData(targetId);
+
+            // 移动端：点击菜单项后关闭菜单
+            if (window.innerWidth < 768) {
+                closeMobileMenu();
+            }
         });
     });
+
+    // 初始化汉堡菜单
+    initHamburger();
+}
+
+/**
+ * 汉堡菜单（移动端）
+ */
+function initHamburger() {
+    const hamburger = document.getElementById('hamburger');
+    const navMenu = document.getElementById('navMenu');
+
+    if (!hamburger || !navMenu) return;
+
+    // 切换菜单
+    hamburger.addEventListener('click', () => {
+        hamburger.classList.toggle('active');
+        navMenu.classList.toggle('active');
+    });
+
+    // 点击菜单外部关闭
+    document.addEventListener('click', (e) => {
+        if (!hamburger.contains(e.target) && !navMenu.contains(e.target)) {
+            closeMobileMenu();
+        }
+    });
+}
+
+/**
+ * 关闭移动端菜单
+ */
+function closeMobileMenu() {
+    const hamburger = document.getElementById('hamburger');
+    const navMenu = document.getElementById('navMenu');
+
+    if (hamburger) hamburger.classList.remove('active');
+    if (navMenu) navMenu.classList.remove('active');
 }
 
 /**
@@ -95,7 +137,7 @@ async function loadPosts() {
     try {
         const response = await PostAPI.getPosts({
             page: 1,
-            limit: PAGINATION.posts,
+            limit: window.PAGINATION.posts,
             status: 'published'
         });
 
@@ -135,7 +177,7 @@ async function loadResources() {
     try {
         const response = await ResourceAPI.getResources({
             page: 1,
-            limit: PAGINATION.resources
+            limit: window.PAGINATION.resources
         });
 
         if (response.data.length === 0) {
@@ -170,7 +212,7 @@ async function loadMedia() {
     try {
         const response = await MediaAPI.getMedia({
             page: 1,
-            limit: PAGINATION.media,
+            limit: window.PAGINATION.media,
             type: AppState.mediaType
         });
 
@@ -209,7 +251,7 @@ async function loadMedia() {
                 // JavaScript获取文件名（替代Python的os.path.basename）
                 const getBasename = (path) => path.split(/[\\/]/).pop();
                 const imageUrl = media.thumbnail_path
-                    ? `${UPLOAD_BASE_URL}/media/thumbnails/${getBasename(media.thumbnail_path)}`
+                    ? `${window.UPLOAD_BASE_URL}/media/thumbnails/${getBasename(media.thumbnail_path)}`
                     : '';
 
                 if (imageUrl) {

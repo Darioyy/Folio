@@ -38,6 +38,10 @@ class MySQLAdapter(DatabaseAdapter):
     def get_connection(self):
         if self.connection is None:
             try:
+                # 禁用 TINYINT 到 bool 的自动转换，保持为整数
+                conv = self.pymysql.converters.conversions.copy()
+                conv[self.pymysql.constants.FIELD_TYPE.TINY] = int
+
                 self.connection = self.pymysql.connect(
                     host=config['default'].MYSQL_HOST,
                     port=config['default'].MYSQL_PORT,
@@ -45,7 +49,8 @@ class MySQLAdapter(DatabaseAdapter):
                     password=config['default'].MYSQL_PASSWORD,
                     database=config['default'].MYSQL_DATABASE,
                     charset=config['default'].MYSQL_CHARSET,
-                    cursorclass=self.pymysql.cursors.DictCursor
+                    cursorclass=self.pymysql.cursors.DictCursor,
+                    conv=conv  # 禁用 TINYINT -> bool 转换
                 )
                 print(f"[OK] MySQL连接成功: {config['default'].MYSQL_DATABASE}")
             except Exception as e:

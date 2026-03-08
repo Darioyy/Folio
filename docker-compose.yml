@@ -1,22 +1,50 @@
 services:
-  # MySQL 数据库
+  # MySQL 数据库（低配服务器优化版）
   mysql:
     image: mysql:8.0
     container_name: ai_web_dev_mysql
     restart: always
+    env_file:
+      - .env
     environment:
-      MYSQL_ROOT_PASSWORD: YourRootPassword123!
-      MYSQL_DATABASE: ai_web_dev
-      MYSQL_USER: ai_web_dev_user
-      MYSQL_PASSWORD: YourPassword123!
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
     ports:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+      - ./mysql.cnf:/etc/mysql/conf.d/custom.cnf
+    # 低配服务器优化命令
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --max_connections=100          # 最大连接数（默认151）
+      - --table_open_cache=200         # 表缓存（默认4000）
+      - --innodb_buffer_pool_size=128M # InnoDB缓冲池（默认128M，已是最小）
+      - --innodb_log_file_size=32M     # 日志文件大小
+      - --key_buffer_size=16M          # 键缓冲区
+      - --sort_buffer_size=2M          # 排序缓冲区
+      - --read_buffer_size=1M          # 读缓冲区
+    # 资源限制（防止占用过多资源）
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'      # 最多使用1个CPU核心
+          memory: 512M     # 最多使用512MB内存
+        reservations:
+          cpus: '0.25'     # 保留0.25个CPU核心
+          memory: 128M     # 保留128MB内存
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
 
-  # Flask 后端
+  # Flask 后端（低配服务器优化版）
   backend:
     build:
       context: ./backend
@@ -25,17 +53,36 @@ services:
     restart: always
     ports:
       - "5000:5000"
+    env_file:
+      - .env
     environment:
-      MYSQL_HOST: mysql
-      MYSQL_PORT: 3306
-      MYSQL_USER: ai_web_dev_user
-      MYSQL_PASSWORD: YourPassword123!
-      MYSQL_DATABASE: ai_web_dev
-      SECRET_KEY: ai-web-dev-docker-secret
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - SECRET_KEY=${SECRET_KEY}
+      - FLASK_ENV=${FLASK_ENV:-production}
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
     volumes:
       - ./uploads:/app/uploads
+    # 资源限制（防止占用过多资源）
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'      # 最多使用1个CPU核心
+          memory: 512M     # 最多使用512MB内存
+        reservations:
+          cpus: '0.25'     # 保留0.25个CPU核心
+          memory: 128M     # 保留128MB内存
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 2
+      start_period: 30s
 
   # Nginx 前端
   nginx:
@@ -50,6 +97,16 @@ services:
       - ./uploads:/usr/share/nginx/uploads
     depends_on:
       - backend
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
 
 volumes:
   mysql_data:
+    driver: local
