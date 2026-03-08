@@ -1374,7 +1374,10 @@
             document.getElementById('adminPage').style.display = 'block';
             document.getElementById('currentUsername').textContent = user.username;
 
-            // 获取完整用户信息（包括权限）
+            // 立即用登录返回的数据更新UI权限（避免切换用户后需刷新才显示按钮）
+            updateUIByPermission();
+
+            // 获取完整用户信息（包括权限），再次更新UI确保准确
             try {
                 const meResponse = await apiRequest('/users/me');
                 currentUser = meResponse.data;
@@ -2082,7 +2085,7 @@
 
             try {
                 if (postId) {
-                    await apiRequest(`/posts/${postId}/`, {
+                    await apiRequest(`/posts/${postId}`, {
                         method: 'PUT',
                         body: JSON.stringify(data)
                     });
@@ -2357,7 +2360,7 @@
                         // root 用户可以做的操作
                         if (currentIsRoot) {
                             // root 可以设置/取消任何人（包括其他root）
-                            actions += `<button class="btn btn-sm ${isAdmin ? 'btn-warning' : 'btn-success'}'
+                            actions += `<button class="btn btn-sm ${isAdmin ? 'btn-warning' : 'btn-success'}"
                                         onclick="toggleUserAdmin(${user.id}, ${isAdmin ? 0 : 1}, '${escapeHtml(user.username)}')">
                                     ${isAdmin ? '取消管理员' : '设为管理员'}
                                 </button>`;
