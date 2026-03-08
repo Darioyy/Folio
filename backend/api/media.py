@@ -4,14 +4,18 @@
 """
 import os
 import uuid
+import logging
 import cv2
 import numpy as np
 from flask import request, jsonify, send_file, g
 from werkzeug.utils import secure_filename
 from api import media_bp
 from api.auth import login_required, is_admin_user
-from app import get_db_connection
+from database import get_db_connection
 from config import Config
+
+# 配置日志
+logger = logging.getLogger(__name__)
 
 
 def allowed_media_file(filename, media_type):
@@ -40,14 +44,14 @@ def generate_video_thumbnail(video_path, output_dir):
         cap = cv2.VideoCapture(video_path)
 
         if not cap.isOpened():
-            print(f"无法打开视频文件: {video_path}")
+            logger.error(f"无法打开视频文件: {video_path}")
             return None
 
         # 读取第一帧
         ret, frame = cap.read()
 
         if not ret or frame is None:
-            print(f"无法读取视频帧: {video_path}")
+            logger.error(f"无法读取视频帧: {video_path}")
             cap.release()
             return None
 
@@ -72,7 +76,7 @@ def generate_video_thumbnail(video_path, output_dir):
         return thumbnail_path
 
     except Exception as e:
-        print(f"生成视频缩略图失败: {e}")
+        logger.error(f"生成视频缩略图失败: {e}")
         return None
 
 
@@ -89,35 +93,36 @@ def get_media():
         media_type = request.args.get('type')
         offset = (page - 1) * limit
 
-        conn = get_db_connection()
-        with conn.cursor() as cursor:
-            # 构建查询条件
-            where_conditions = []
-            params = []
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                # 构建查询条件
+                where_conditions = []
+                params = []
 
-            if media_type in ['image', 'video']:
-                where_conditions.append("file_type = %s")
-                params.append(media_type)
+                if media_type in ['image', 'video']:
+                    where_conditions.append("file_type = %s")
+                    params.append(media_type)
 
-            where_clause = "WHERE " + " AND ".join(where_conditions) if where_conditions else ""
+                where_clause = "WHERE " + " AND ".join(where_conditions) if where_conditions else ""
 
-            # 获取总数
-            count_sql = f"SELECT COUNT(*) as total FROM media {where_clause}"
-            cursor.execute(count_sql, params)
-            total = cursor.fetchone()['total']
+                # 获取总数
+                count_sql = f"SELECT COUNT(*) as total FROM media {where_clause}"
+                cursor.execute(count_sql, params)
+                total = cursor.fetchone()['total']
 
-            # 获取分页数据
-            params.extend([limit, offset])
-            data_sql = f"""
-                SELECT m.*, u.username as uploader_name
-                FROM media m
-                LEFT JOIN users u ON m.uploader_id = u.id
-                {where_clause}
-                ORDER BY m.created_at DESC
-                LIMIT %s OFFSET %s
-            """
-            cursor.execute(data_sql, params)
-            media_list = cursor.fetchall()
+                # 获取分页数据
+                params.extend([limit, offset])
+                data_sql = f"""
+                    SELECT m.*, u.username as uploader_name,
+                           m.file_type as type
+                    FROM media m
+                    LEFT JOIN users u ON m.uploader_id = u.id
+                    {where_clause}
+                    ORDER BY m.created_at DESC
+                    LIMIT %s OFFSET %s
+                """
+                cursor.execute(data_sql, params)
+                media_list = cursor.fetchall()
 
         return jsonify({
             'success': True,
@@ -144,15 +149,15 @@ def get_media_detail(media_id):
     GET /api/v1/media/{id}
     """
     try:
-        conn = get_db_connection()
-        with conn.cursor() as cursor:
-            cursor.execute("""
-                SELECT m.*, u.username as uploader_name
-                FROM media m
-                LEFT JOIN users u ON m.uploader_id = u.id
-                WHERE m.id = %s
-            """, (media_id,))
-            media = cursor.fetchone()
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT m.*, u.username as uploader_name
+                    FROM media m
+                    LEFT JOIN users u ON m.uploader_id = u.id
+                    WHERE m.id = %s
+                """, (media_id,))
+                media = cursor.fetchone()
 
         if not media:
             return jsonify({
@@ -234,55 +239,59 @@ def upload_media():
         file_path = os.path.join(upload_dir, unique_filename)
         file.save(file_path)
 
-        # 处理缩略图
+        # 处理缩略图 - 使用相对路径存储
         thumbnail_path = None
-        normalized_path = os.path.normpath(file_path)
+        # 计算相对于uploads目录的相对路径
+        uploads_dir = os.path.abspath(Config.UPLOAD_FOLDER)
+        relative_file_path = os.path.relpath(file_path, uploads_dir)
 
         if media_type == 'image':
-            # 图片直接作为自己的缩略图
-            thumbnail_path = normalized_path
+            # 图片直接作为自己的缩略图（使用相对路径）
+            thumbnail_path = relative_file_path
         else:
             # 视频处理缩略图
             if thumbnail_file and thumbnail_file.filename:
                 # 用户上传了封面图片
                 thumb_ext = thumbnail_file.filename.rsplit('.', 1)[1].lower()
                 thumb_filename = f"{uuid.uuid4().hex}_thumb.{thumb_ext}"
-                thumbnail_path = os.path.join(thumbnail_dir, thumb_filename)
-                thumbnail_file.save(thumbnail_path)
-                thumbnail_path = os.path.normpath(thumbnail_path)
+                thumbnail_abs_path = os.path.join(thumbnail_dir, thumb_filename)
+                thumbnail_file.save(thumbnail_abs_path)
+                # 存储相对路径
+                thumbnail_path = os.path.relpath(thumbnail_abs_path, uploads_dir)
             else:
                 # 没有上传封面，自动截取视频第一帧
-                print(f"正在为视频生成缩略图: {file.filename}")
-                thumbnail_path = generate_video_thumbnail(file_path, thumbnail_dir)
-                if thumbnail_path:
-                    thumbnail_path = os.path.normpath(thumbnail_path)
+                logger.info(f"正在为视频生成缩略图: {file.filename}")
+                thumbnail_abs_path = generate_video_thumbnail(file_path, thumbnail_dir)
+                if thumbnail_abs_path:
+                    # 存储相对路径
+                    thumbnail_path = os.path.relpath(thumbnail_abs_path, uploads_dir)
 
-        # 保存到数据库
-        conn = get_db_connection()
-        with conn.cursor() as cursor:
-            cursor.execute("""
-                INSERT INTO media (title, description, file_path, file_name, file_type, thumbnail_path, uploader_id)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """, (
-                title,
-                description,
-                normalized_path,
-                file.filename,
-                media_type,
-                thumbnail_path,
-                uploader_id
-            ))
-            conn.commit()
+        # 保存到数据库（使用相对路径）
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO media (title, description, file_path, file_name, file_type, thumbnail_path, uploader_id)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    title,
+                    description,
+                    relative_file_path,
+                    file.filename,
+                    media_type,
+                    thumbnail_path,
+                    uploader_id
+                ))
+                conn.commit()
 
-        return jsonify({
-            'success': True,
-            'message': '媒体上传成功',
-            'data': {
-                'id': cursor.lastrowid,
-                'title': title,
-                'type': media_type
-            }
-        }), 201
+                return jsonify({
+                    'success': True,
+                    'message': '媒体上传成功',
+                    'data': {
+                        'id': cursor.lastrowid,
+                        'title': title,
+                        'type': media_type
+                    }
+                }), 201
 
     except Exception as e:
         return jsonify({
@@ -298,27 +307,37 @@ def view_media(media_id):
     GET /api/v1/media/{id}/view
     """
     try:
-        conn = get_db_connection()
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT * FROM media WHERE id = %s", (media_id,))
-            media = cursor.fetchone()
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT * FROM media WHERE id = %s", (media_id,))
+                media = cursor.fetchone()
 
-            if not media:
-                return jsonify({
-                    'success': False,
-                    'error': '媒体不存在'
-                }), 404
+                if not media:
+                    return jsonify({
+                        'success': False,
+                        'error': '媒体不存在'
+                    }), 404
 
-            if not os.path.exists(media['file_path']):
-                return jsonify({
-                    'success': False,
-                    'error': '文件不存在'
-                }), 404
+                # 数据库存储的是相对路径，转换为绝对路径
+                relative_path = media['file_path']
+                uploads_dir = os.path.abspath(Config.UPLOAD_FOLDER)
+                file_path = os.path.join(uploads_dir, relative_path)
+
+                logger.info(f"查看媒体文件: media_id={media_id}, relative_path={relative_path}, file_path={file_path}")
+
+                # 检查文件是否存在
+                if not os.path.exists(file_path):
+                    logger.error(f"文件不存在: {file_path}")
+                    return jsonify({
+                        'success': False,
+                        'error': '文件不存在'
+                    }), 404
 
         # 发送文件（不作为附件，用于浏览器显示）
-        return send_file(media['file_path'])
+        return send_file(file_path)
 
     except Exception as e:
+        logger.error(f"查看媒体文件失败: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -334,32 +353,35 @@ def delete_media(media_id):
     权限：只有admin或上传者可以删除
     """
     try:
-        conn = get_db_connection()
-        with conn.cursor() as cursor:
-            # 获取媒体信息和上传者信息
-            cursor.execute("SELECT file_path, uploader_id FROM media WHERE id = %s", (media_id,))
-            media = cursor.fetchone()
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                # 获取媒体信息和上传者信息
+                cursor.execute("SELECT file_path, uploader_id FROM media WHERE id = %s", (media_id,))
+                media = cursor.fetchone()
 
-            if not media:
-                return jsonify({
-                    'success': False,
-                    'error': '媒体不存在'
-                }), 404
+                if not media:
+                    return jsonify({
+                        'success': False,
+                        'error': '媒体不存在'
+                    }), 404
 
-            # 权限检查：只有admin或上传者可以删除
-            if not is_admin_user(g.user_id) and media['uploader_id'] != g.user_id:
-                return jsonify({
-                    'success': False,
-                    'error': '没有权限删除此媒体'
-                }), 403
+                # 权限检查：只有admin或上传者可以删除
+                if not is_admin_user(g.user_id) and media['uploader_id'] != g.user_id:
+                    return jsonify({
+                        'success': False,
+                        'error': '没有权限删除此媒体'
+                    }), 403
 
-            # 删除数据库记录
-            cursor.execute("DELETE FROM media WHERE id = %s", (media_id,))
-            conn.commit()
+                # 删除数据库记录
+                cursor.execute("DELETE FROM media WHERE id = %s", (media_id,))
+                conn.commit()
 
-            # 删除物理文件
-            if os.path.exists(media['file_path']):
-                os.remove(media['file_path'])
+                # 删除物理文件（将相对路径转换为绝对路径）
+                uploads_dir = os.path.abspath(Config.UPLOAD_FOLDER)
+                file_path = os.path.join(uploads_dir, media['file_path'])
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                    logger.info(f"已删除文件: {file_path}")
 
         return jsonify({
             'success': True,

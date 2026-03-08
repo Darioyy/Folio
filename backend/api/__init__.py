@@ -13,3 +13,5 @@ system_bp = Blueprint('system', __name__)
 
 # 导入路由（必须在蓝图定义后导入）
 from . import user, post, resource, media, system
+
+__all__ = ['user_bp', 'post_bp', 'resource_bp', 'media_bp', 'system_bp']

@@ -10,9 +10,10 @@
  * @returns {Promise} 响应数据
  */
 async function apiRequest(endpoint, options = {}) {
-    const url = `${API_BASE_URL}${endpoint}`;
+    const url = `${window.window.API_BASE_URL}${endpoint}`;
 
     const defaultOptions = {
+        credentials: 'include',
         headers: {
             'Content-Type': 'application/json',
         },
@@ -92,7 +93,7 @@ const ResourceAPI = {
 
     // 上传资源
     uploadResource: async (formData) => {
-        const url = `${API_BASE_URL}/resources/upload`;
+        const url = `${window.API_BASE_URL}/resources/upload`;
 
         try {
             const response = await fetch(url, {
@@ -114,7 +115,7 @@ const ResourceAPI = {
 
     // 下载资源
     downloadResource: (id) => {
-        window.open(`${API_BASE_URL}/resources/${id}/download`, '_blank');
+        window.open(`${window.API_BASE_URL}/resources/${id}/download`, '_blank');
     },
 
     // 删除资源
@@ -138,7 +139,7 @@ const MediaAPI = {
 
     // 上传媒体
     uploadMedia: async (formData) => {
-        const url = `${API_BASE_URL}/media/upload`;
+        const url = `${window.API_BASE_URL}/media/upload`;
 
         try {
             const response = await fetch(url, {
@@ -159,7 +160,7 @@ const MediaAPI = {
     },
 
     // 获取媒体查看URL
-    getViewUrl: (id) => `${API_BASE_URL}/media/${id}/view`,
+    getViewUrl: (id) => `${window.API_BASE_URL}/media/${id}/view`,
 
     // 删除媒体
     deleteMedia: (id) => apiRequest(`/media/${id}`, {
@@ -188,7 +189,7 @@ const UserAPI = {
 
     // 登录
     login: async (username, password) => {
-        const response = await fetch(`${API_BASE_URL}/users/login`, {
+        const response = await fetch(`${window.API_BASE_URL}/users/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -203,7 +204,7 @@ const UserAPI = {
 
     // 登出
     logout: async () => {
-        const response = await fetch(`${API_BASE_URL}/users/logout`, {
+        const response = await fetch(`${window.API_BASE_URL}/users/logout`, {
             method: 'POST',
             credentials: 'include'
         });
@@ -216,7 +217,7 @@ const UserAPI = {
 
     // 检查登录状态
     checkAuth: async () => {
-        const response = await fetch(`${API_BASE_URL}/users/check-auth`, {
+        const response = await fetch(`${window.API_BASE_URL}/users/check-auth`, {
             credentials: 'include'
         });
         const data = await response.json();
@@ -228,7 +229,7 @@ const UserAPI = {
 
     // 获取当前用户
     getMe: async () => {
-        const response = await fetch(`${API_BASE_URL}/users/me`, {
+        const response = await fetch(`${window.API_BASE_URL}/users/me`, {
             credentials: 'include'
         });
         const data = await response.json();

@@ -3,14 +3,14 @@
  * 学习要点：API地址配置、环境切换
  */
 
-// API基础URL - 开发环境使用本地地址
-const API_BASE_URL = 'http://localhost:5000/api/v1';
 
-// 上传文件访问URL - 用于图片/视频显示
-const UPLOAD_BASE_URL = 'http://localhost:5000/uploads';
+// API基础URL - 远程服务器专用（不带端口）
+// 使用 window 对象确保全局可访问
+window.API_BASE_URL = '/api/v1';
+window.UPLOAD_BASE_URL = '/uploads';
 
 // 分页配置
-const PAGINATION = {
+window.PAGINATION = {
     posts: 10,
     resources: 12,
     media: 12

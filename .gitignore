@@ -30,7 +30,9 @@ uploads/
 
 # 日志
 *.log
+logs/
 
 # 操作系统
 .DS_Store
 Thumbs.db
+nul

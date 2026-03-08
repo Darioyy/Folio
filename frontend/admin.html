@@ -403,6 +403,292 @@
             color: white;
             border-color: #667eea;
         }
+
+        /* ============================================
+           响应式设计 - Mobile First
+           ============================================ */
+
+        /* 移动端侧边栏切换按钮 - 返回箭头 */
+        .sidebar-toggle {
+            display: none;
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 102;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            width: 44px;
+            height: 44px;
+            cursor: pointer;
+            font-size: 24px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            display: flex;
+        }
+
+        .sidebar-toggle:active {
+            transform: scale(0.95);
+        }
+
+        /* 关闭按钮（侧边栏打开时显示） */
+        #sidebarClose {
+            left: auto;
+            right: 10px;
+        }
+
+        /* 侧边栏遮罩 */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 99;
+        }
+
+        .sidebar-overlay.active {
+            display: block;
+        }
+
+        /* 手机端（< 768px） */
+        @media (max-width: 767px) {
+            /* 显示侧边栏切换按钮 */
+            .sidebar-toggle {
+                display: block;
+            }
+
+            /* 侧边栏 - 抽屉式 */
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+                width: 280px;
+            }
+
+            .sidebar.active {
+                transform: translateX(0);
+            }
+
+            /* 主内容区 - 为按钮留出空间 */
+            .main-content {
+                margin-left: 0;
+                padding: 15px;
+                padding-top: 60px;
+            }
+
+            /* 内容头部 */
+            .content-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .content-header h1 {
+                font-size: 1.5rem;
+            }
+
+            .content-header .btn {
+                width: 100%;
+            }
+
+            /* 统计卡片网格 */
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+
+            .stat-card {
+                padding: 15px;
+            }
+
+            .stat-value {
+                font-size: 28px;
+            }
+
+            /* 表格 - 卡片化 */
+            table {
+                display: block;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            thead {
+                display: none;
+            }
+
+            tbody {
+                display: block;
+            }
+
+            tr {
+                display: block;
+                margin-bottom: 15px;
+                border: 1px solid #eee;
+                border-radius: 8px;
+                background: white;
+            }
+
+            td {
+                display: flex;
+                justify-content: space-between;
+                padding: 10px 15px;
+                border-bottom: 1px solid #f0f0f0;
+            }
+
+            td:last-child {
+                border-bottom: none;
+            }
+
+            td::before {
+                content: attr(data-label);
+                font-weight: 600;
+                color: #555;
+                margin-right: 15px;
+            }
+
+            /* 操作按钮 */
+            .actions {
+                flex-wrap: wrap;
+            }
+
+            .btn-sm {
+                padding: 8px 14px;
+                font-size: 13px;
+            }
+
+            /* 模态框 */
+            .modal-content {
+                width: 95%;
+                max-width: none;
+                padding: 20px;
+                margin: 10px;
+            }
+
+            .modal-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .modal-footer {
+                flex-direction: column;
+            }
+
+            .modal-footer .btn {
+                width: 100%;
+            }
+
+            /* 表单 */
+            .form-group input,
+            .form-group textarea,
+            .form-group select {
+                font-size: 16px;
+            }
+
+            /* 登录框 */
+            .login-box {
+                max-width: 90%;
+                padding: 30px 20px;
+            }
+
+            /* 标签按钮 */
+            .upload-tabs,
+            .post-filters {
+                flex-wrap: wrap;
+            }
+
+            .upload-tab-btn,
+            .filter-btn {
+                flex: 1;
+                min-width: calc(50% - 5px);
+                padding: 10px;
+                font-size: 14px;
+            }
+
+            /* 上传区域 */
+            .upload-tab-content {
+                padding: 15px 0;
+            }
+
+            /* 文件上传 */
+            input[type="file"] {
+                font-size: 14px;
+            }
+        }
+
+        /* 平板端（768px - 1023px） */
+        @media (min-width: 768px) and (max-width: 1023px) {
+            /* 侧边栏保持固定 */
+            .sidebar {
+                width: 220px;
+            }
+
+            .main-content {
+                margin-left: 220px;
+                padding: 20px;
+            }
+
+            /* 统计卡片 */
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            /* 表格横向滚动 */
+            .card {
+                overflow-x: auto;
+            }
+
+            table {
+                min-width: 600px;
+            }
+        }
+
+        /* 小屏优化（< 480px） */
+        @media (max-width: 479px) {
+            .sidebar {
+                width: 100%;
+            }
+
+            .main-content {
+                padding: 10px;
+                padding-top: 50px;
+            }
+
+            .content-header h1 {
+                font-size: 1.25rem;
+            }
+
+            .btn-sm {
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+
+            .stat-value {
+                font-size: 24px;
+            }
+        }
+
+        /* 触摸设备优化 */
+        @media (hover: none) and (pointer: coarse) {
+            .nav-item,
+            .submenu-item,
+            .btn,
+            .filter-btn,
+            .upload-tab-btn {
+                min-height: 44px;
+                display: flex;
+                align-items: center;
+            }
+
+            .nav-item {
+                padding: 12px 20px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -511,8 +797,14 @@
 
     <!-- 后台主界面 -->
     <div class="admin-container" id="adminPage">
+        <!-- 侧边栏切换按钮（移动端） -->
+        <button class="sidebar-toggle" id="sidebarToggle" aria-label="菜单">☰</button>
+        <!-- 当侧边栏打开时，显示关闭箭头 -->
+        <button class="sidebar-toggle" id="sidebarClose" aria-label="关闭菜单" style="display: none;">&#10094;</button>
+        <!-- 侧边栏遮罩 -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
         <!-- 侧边栏 -->
-        <div class="sidebar">
+        <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <h2>博客管理后台</h2>
                 <div class="user-info">
@@ -806,12 +1098,13 @@
                                 <th>ID</th>
                                 <th>用户名</th>
                                 <th>邮箱</th>
+                                <th>角色</th>
                                 <th>创建时间</th>
                                 <th>操作</th>
                             </tr>
                         </thead>
                         <tbody id="usersTableBody">
-                            <tr><td colspan="5" class="empty-state">加载中...</td></tr>
+                            <tr><td colspan="6" class="empty-state">加载中...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -930,13 +1223,20 @@
     </div>
 
     <script>
+        // 调试：确认脚本是否加载
+        console.log('[admin.html] JavaScript 已加载');
+        console.log('[admin.html] 当前时间:', new Date().toISOString());
+
         // ============================================
         // API配置
         // ============================================
-        const API_BASE_URL = 'http://localhost:5000/api/v1';
+        // const window.API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        //     ? 'http://localhost:5000/api/v1'
+        //     : `${window.location.protocol}//${window.location.hostname}/api/v1`;
+        window.API_BASE_URL = '/api/v1';
 
         async function apiRequest(endpoint, options = {}) {
-            const url = `${API_BASE_URL}${endpoint}`;
+            const url = `${window.API_BASE_URL}${endpoint}`;
             const defaultOptions = {
                 credentials: 'include',
                 headers: {
@@ -965,22 +1265,93 @@
         }
 
         // ============================================
+        // 移动端侧边栏
+        // ============================================
+        function initMobileSidebar() {
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const sidebarClose = document.getElementById('sidebarClose');
+            const sidebar = document.getElementById('sidebar');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+            if (!sidebarToggle || !sidebarClose || !sidebar || !sidebarOverlay) return;
+
+            // 打开侧边栏
+            sidebarToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                sidebar.classList.add('active');
+                sidebarOverlay.classList.add('active');
+                sidebarToggle.style.display = 'none';
+                sidebarClose.style.display = 'flex';
+            });
+
+            // 关闭侧边栏
+            sidebarClose.addEventListener('click', (e) => {
+                e.stopPropagation();
+                closeMobileSidebar();
+            });
+
+            // 点击遮罩关闭
+            sidebarOverlay.addEventListener('click', closeMobileSidebar);
+
+            // 点击侧边栏外部关闭
+            document.addEventListener('click', (e) => {
+                if (window.innerWidth < 768 &&
+                    !sidebar.contains(e.target) &&
+                    !sidebarToggle.contains(e.target) &&
+                    !sidebarClose.contains(e.target)) {
+                    closeMobileSidebar();
+                }
+            });
+
+            // ESC键关闭
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    closeMobileSidebar();
+                }
+            });
+
+            // 点击导航项后关闭侧边栏（移动端）
+            document.addEventListener('click', (e) => {
+                const navItem = e.target.closest('.nav-item, .submenu-item');
+                if (navItem && window.innerWidth < 768 && sidebar.classList.contains('active')) {
+                    closeMobileSidebar();
+                }
+            });
+        }
+
+        function closeMobileSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const sidebarClose = document.getElementById('sidebarClose');
+
+            if (sidebar) sidebar.classList.remove('active');
+            if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+            if (sidebarToggle) sidebarToggle.style.display = 'flex';
+            if (sidebarClose) sidebarClose.style.display = 'none';
+        }
+
+        // ============================================
         // 登录/注册功能
         // ============================================
         let currentUser = null;
 
         async function checkLoginStatus() {
+            console.log('[checkLoginStatus] 开始检查登录状态...');
             try {
-                const response = await fetch(`${API_BASE_URL}/users/check-auth`, {
+                const response = await fetch(`${window.API_BASE_URL}/users/check-auth`, {
                     credentials: 'include'
                 });
                 const data = await response.json();
+                console.log('[checkLoginStatus] 服务器响应:', data);
 
                 // 严格检查：必须返回authenticated=true且有用户数据才算已登录
                 if (data && data.success === true && data.authenticated === true && data.data && data.data.id) {
+                    console.log('[checkLoginStatus] 用户已登录:', data.data);
                     currentUser = data.data;
                     showAdminPage(data.data);
                 } else {
+                    console.log('[checkLoginStatus] 用户未登录');
                     // 未登录或登录无效，显示登录页
                     currentUser = null;
                     showLoginPage();
@@ -1013,23 +1384,27 @@
             }
 
             loadDashboard();
+
+            // 初始化移动端侧边栏
+            initMobileSidebar();
         }
 
         // 根据权限更新UI
         function updateUIByPermission() {
-            const isAdmin = currentUser?.is_admin || false;
+            const isAdmin = !!currentUser?.is_admin;
+            const isRoot = !!currentUser?.is_root;
 
-            // 用户管理：只有admin可见
+            // 用户管理：只有admin/root可见
             const usersNavItem = document.querySelector('.nav-item[data-page="users"]');
             if (usersNavItem) {
-                usersNavItem.style.display = isAdmin ? 'flex' : 'none';
+                usersNavItem.style.display = (isAdmin || isRoot) ? 'flex' : 'none';
             }
         }
 
         // 检查是否有删除权限
         function canDeleteItem(itemOwnerId) {
-            // admin可以删除任何内容
-            if (currentUser?.is_admin) return true;
+            // root/admin 可以删除任何内容
+            if (!!currentUser?.is_root || !!currentUser?.is_admin) return true;
             // 普通用户只能删除自己的内容
             return itemOwnerId === currentUser?.id;
         }
@@ -1042,7 +1417,7 @@
 
             try {
                 // 先尝试登出
-                await fetch(`${API_BASE_URL}/users/logout`, {
+                await fetch(`${window.API_BASE_URL}/users/logout`, {
                     method: 'POST',
                     credentials: 'include'
                 });
@@ -1533,7 +1908,7 @@
             }
 
             try {
-                const response = await fetch(`${API_BASE_URL}/${endpoint}/upload`, {
+                const response = await fetch(`${window.API_BASE_URL}/${endpoint}/upload`, {
                     method: 'POST',
                     credentials: 'include',
                     body: formData
@@ -1599,16 +1974,16 @@
                 }
 
                 tbody.innerHTML = posts.map(post => {
-                    const canDelete = currentUser?.is_admin || post.author_id === currentUser?.id;
+                    const canDelete = !!currentUser?.is_root || !!currentUser?.is_admin || post.author_id === currentUser?.id;
                     return `
                     <tr>
-                        <td>${post.id}</td>
-                        <td>${escapeHtml(post.title)}</td>
-                        <td>${post.category_name || '未分类'}</td>
-                        <td>${post.status === 'published' ? '已发布' : '草稿'}</td>
-                        <td>${post.view_count}</td>
-                        <td>${formatDate(post.created_at)}</td>
-                        <td>
+                        <td data-label="ID">${post.id}</td>
+                        <td data-label="标题">${escapeHtml(post.title)}</td>
+                        <td data-label="分类">${post.category_name || '未分类'}</td>
+                        <td data-label="状态">${post.status === 'published' ? '已发布' : '草稿'}</td>
+                        <td data-label="浏览">${post.view_count}</td>
+                        <td data-label="创建时间">${formatDate(post.created_at)}</td>
+                        <td data-label="操作">
                             <div class="actions">
                                 <button class="btn btn-sm" onclick="editPost(${post.id})">编辑</button>
                                 ${canDelete ? `<button class="btn btn-sm btn-danger" onclick="deletePost(${post.id})">删除</button>` : ''}
@@ -1816,15 +2191,15 @@
                 }
 
                 tbody.innerHTML = mediaList.map(media => {
-                    const canDelete = currentUser?.is_admin;
+                    const canDelete = !!currentUser?.is_admin;
                     return `
                     <tr>
-                        <td>${media.id}</td>
-                        <td>${media.type === 'image' ? '图片' : '视频'}</td>
-                        <td>${escapeHtml(media.title)}</td>
-                        <td>${escapeHtml(media.description || '-')}</td>
-                        <td>${formatDate(media.created_at)}</td>
-                        <td>
+                        <td data-label="ID">${media.id}</td>
+                        <td data-label="类型">${media.type === 'image' ? '图片' : '视频'}</td>
+                        <td data-label="标题">${escapeHtml(media.title)}</td>
+                        <td data-label="描述">${escapeHtml(media.description || '-')}</td>
+                        <td data-label="创建时间">${formatDate(media.created_at)}</td>
+                        <td data-label="操作">
                             <div class="actions">
                                 <button class="btn btn-sm" onclick="previewMedia(${media.id}, '${media.type}')">预览</button>
                                 ${canDelete ? `<button class="btn btn-sm btn-danger" onclick="deleteMedia(${media.id})">删除</button>` : ''}
@@ -1853,7 +2228,7 @@
         }
 
         function previewMedia(id, type) {
-            const url = `${API_BASE_URL}/media/${id}/view`;
+            const url = `${window.API_BASE_URL}/media/${id}/view`;
             if (type === 'image') {
                 window.open(url, '_blank');
             } else {
@@ -1890,7 +2265,7 @@
                 }
 
                 tbody.innerHTML = resources.map(resource => {
-                    const canDelete = currentUser?.is_admin;
+                    const canDelete = !!currentUser?.is_admin;
                     return `
                     <tr>
                         <td>${resource.id}</td>
@@ -1913,7 +2288,7 @@
         }
 
         function downloadResource(id) {
-            window.open(`${API_BASE_URL}/resources/${id}/download`, '_blank');
+            window.open(`${window.API_BASE_URL}/resources/${id}/download`, '_blank');
         }
 
         async function deleteResource(id) {
@@ -1933,38 +2308,118 @@
         // ============================================
         async function loadUsers() {
             const tbody = document.getElementById('usersTableBody');
-            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">加载中...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">加载中...</td></tr>';
 
-            // 只有admin可以查看用户管理
-            if (!currentUser?.is_admin) {
-                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">没有权限访问</td></tr>';
+            // 只有admin/root可以查看用户管理
+            if (!currentUser?.is_admin && !currentUser?.is_root) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">没有权限访问</td></tr>';
                 return;
             }
+
+            // 调试日志
+            console.log('[loadUsers] 当前用户:', currentUser);
+            console.log('[loadUsers] is_root:', currentUser?.is_root, 'is_admin:', currentUser?.is_admin);
 
             try {
                 const response = await apiRequest('/users/?page=1&limit=50');
                 const users = response.data;
 
+                console.log('[loadUsers] 返回的用户数据:', users);
+
                 if (users.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">暂无用户</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">暂无用户</td></tr>';
                     return;
                 }
 
-                tbody.innerHTML = users.map(user => `
+                tbody.innerHTML = users.map(user => {
+                    const isRoot = !!user.is_root;
+                    const isAdmin = !!user.is_admin;
+                    const isCurrentUser = user.id === currentUser?.id;
+                    const currentIsRoot = !!currentUser?.is_root;
+                    const currentIsAdmin = !!currentUser?.is_admin;
+
+                    // 调试日志
+                    console.log(`[loadUsers] 用户 ${user.username}: is_root=${isRoot}, is_admin=${isAdmin}, email=${user.email}`);
+
+                    // 角色显示
+                    let roleDisplay = '';
+                    if (isRoot) {
+                        roleDisplay = '<span style="color: #ff0000; font-weight: bold;">🔴 ROOT</span>';
+                    } else if (isAdmin) {
+                        roleDisplay = '<span style="color: #dc3545; font-weight: bold;">👑 管理员</span>';
+                    } else {
+                        roleDisplay = '<span style="color: #6c757d;">普通用户</span>';
+                    }
+
+                    // 操作按钮
+                    let actions = '';
+                    if (!isCurrentUser) {
+                        // root 用户可以做的操作
+                        if (currentIsRoot) {
+                            // root 可以设置/取消任何人（包括其他root）
+                            actions += `<button class="btn btn-sm ${isAdmin ? 'btn-warning' : 'btn-success'}'
+                                        onclick="toggleUserAdmin(${user.id}, ${isAdmin ? 0 : 1}, '${escapeHtml(user.username)}')">
+                                    ${isAdmin ? '取消管理员' : '设为管理员'}
+                                </button>`;
+                            // root 可以删除任何人（除了自己）
+                            actions += `<button class="btn btn-sm btn-danger" onclick="deleteUser(${user.id})">删除</button>`;
+                        } else if (currentIsAdmin) {
+                            // admin 只能删除普通用户（不能删除 admin 和 root）
+                            // admin 不能设置/取消管理员权限
+                            if (!isRoot && !isAdmin) {
+                                actions += `<button class="btn btn-sm btn-danger" onclick="deleteUser(${user.id})">删除</button>`;
+                            } else {
+                                actions += '<span style="color: #999;">-</span>';
+                            }
+                        }
+                    } else {
+                        actions = '<span style="color: #999;">-</span>';
+                    }
+
+                    // 密码不再显示（出于安全考虑，即使是root用户也不显示密码哈希）
+                    const passwordDisplay = '';
+
+                    return `
                     <tr>
-                        <td>${user.id}</td>
-                        <td>${escapeHtml(user.username)}${user.id === currentUser?.id ? ' <span style="color: #28a745;">(当前用户)</span>' : ''}</td>
-                        <td>${escapeHtml(user.email || '-')}</td>
-                        <td>${formatDate(user.created_at)}</td>
-                        <td>
-                            <div class="actions">
-                                ${user.id !== currentUser?.id ? `<button class="btn btn-sm btn-danger" onclick="deleteUser(${user.id})">删除</button>` : '<span style="color: #999;">-</span>'}
+                        <td data-label="ID">${user.id}</td>
+                        <td data-label="用户名">${escapeHtml(user.username)}${isCurrentUser ? ' <span style="color: #28a745;">(当前用户)</span>' : ''}${passwordDisplay}</td>
+                        <td data-label="邮箱">${escapeHtml(user.email || '-')}</td>
+                        <td data-label="角色">${roleDisplay}</td>
+                        <td data-label="创建时间">${formatDate(user.created_at)}</td>
+                        <td data-label="操作">
+                            <div class="actions" style="display: flex; gap: 5px; flex-wrap: wrap;">
+                                ${actions}
                             </div>
                         </td>
                     </tr>
-                `).join('');
+                `}).join('');
             } catch (error) {
-                tbody.innerHTML = `<tr><td colspan="5" class="empty-state">加载失败: ${error.message}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="empty-state">加载失败: ${error.message}</td></tr>`;
+            }
+        }
+
+        async function toggleUserAdmin(userId, newAdminStatus, username) {
+            // newAdminStatus 是要设置的新状态（由按钮传递）
+            // 1 = 设为管理员，0 = 取消管理员
+            const action = newAdminStatus === 1 ? '设为管理员' : '取消管理员权限';
+
+            console.log('[toggleUserAdmin] 当前用户:', currentUser);
+            console.log('[toggleUserAdmin] 参数:', { userId, newAdminStatus, username });
+
+            if (!confirm(`确定要将 ${username} ${action}吗？`)) return;
+
+            try {
+                console.log('[toggleUserAdmin] 发送请求:', { userId, is_admin: newAdminStatus === 1 });
+                const response = await apiRequest(`/users/${userId}/admin`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ is_admin: newAdminStatus === 1 })
+                });
+                console.log('[toggleUserAdmin] 服务器响应:', response);
+                alert(`${action}成功`);
+                loadUsers();
+            } catch (error) {
+                console.error('[toggleUserAdmin] 错误详情:', error);
+                alert(`${action}失败: ` + error.message);
             }
         }
 
