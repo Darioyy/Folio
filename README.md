@@ -143,10 +143,13 @@ ai_web_dev 数据库
 
 ## 文档
 
-详细文档请查看 `docs/` 目录：
-- [plan.md](docs/plan.md) - 项目实施方案
-- [progress.md](docs/progress.md) - 进度记录
-- [troubleshooting_log.md](docs/troubleshooting_log.md) - 问题解决日志
+详细文档请查看项目文档：
+- `.claude/README.md` - 项目核心文档导航
+- `.claude/docs/private-hub-implementation-plan.md` - 个人工作台功能实施计划
+- `.claude/FEATURES.md` - 开发任务清单
+- `.claude/ARCHITECTURE.md` - 技术架构文档
+- `.claude/PRODUCT.md` - 产品设计文档
+- `.claude/CHANGELOG.md` - 变更历史记录
 
 ## 学习目标
 

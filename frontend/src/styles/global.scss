@@ -1,0 +1,192 @@
+// VaultShare 全局样式
+
+@import './variables.scss';
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: $font-base;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: $font-sans;
+  line-height: 1.6;
+  color: $color-gray-800;
+}
+
+// 容器
+.container {
+  width: 100%;
+  max-width: $container-lg;
+  margin: 0 auto;
+  padding: 0 $spacing-md;
+
+  @media (min-width: $breakpoint-sm) {
+    padding: 0 $spacing-lg;
+  }
+}
+
+// 响应式显示
+.hide-on-mobile {
+  @media (max-width: $breakpoint-sm) {
+    display: none !important;
+  }
+}
+
+.show-on-mobile {
+  display: none !important;
+
+  @media (max-width: $breakpoint-sm) {
+    display: block !important;
+  }
+}
+
+// 通用类
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+
+// 渐变背景
+.gradient-primary {
+  background: linear-gradient(135deg, $color-primary 0%, $color-secondary 100%);
+}
+
+.gradient-dark {
+  background: linear-gradient(135deg, $color-gray-800 0%, $color-gray-900 100%);
+}
+
+// 卡片样式
+.card {
+  background: var(--el-bg-color);
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+  box-shadow: $shadow-sm;
+  border: 1px solid var(--el-border-color);
+  transition: box-shadow $transition-base;
+
+  &:hover {
+    box-shadow: $shadow-md;
+  }
+}
+
+// 按钮样式增强
+.btn-gradient {
+  background: linear-gradient(135deg, $color-primary 0%, $color-secondary 100%);
+  border: none;
+  color: white;
+
+  &:hover {
+    opacity: 0.9;
+  }
+}
+
+// 暗黑模式覆盖
+html.dark {
+  body {
+    background: $dark-bg-primary;
+    color: $color-gray-100;
+  }
+}
+
+// 动画
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.4s ease-out;
+}
+
+// Element Plus 覆盖
+.el-card {
+  border-radius: $radius-lg !important;
+  border: 1px solid var(--el-border-color) !important;
+  box-shadow: $shadow-sm !important;
+
+  &:hover {
+    box-shadow: $shadow-md !important;
+  }
+}
+
+.el-button {
+  border-radius: $radius-md !important;
+  font-weight: 500 !important;
+  transition: all $transition-base !important;
+
+  &.el-button--primary {
+    background: linear-gradient(135deg, $color-primary 0%, $color-secondary 100%) !important;
+    border: none !important;
+
+    &:hover {
+      opacity: 0.9 !important;
+    }
+  }
+}
+
+// 滚动条美化
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--el-fill-color-lighter);
+  border-radius: $radius-full;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--el-border-color-darker);
+  border-radius: $radius-full;
+
+  &:hover {
+    background: var(--el-border-color-dark);
+  }
+}
+
+// 移动端优化
+@media (max-width: $breakpoint-sm) {
+  html {
+    font-size: 14px;
+  }
+
+  .container {
+    padding: 0 $spacing-md;
+  }
+}

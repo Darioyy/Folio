@@ -1,128 +1,14 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我的个人博客</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📝</text></svg>">
-</head>
-<body>
-    <!-- 导航栏 -->
-    <header class="header">
-        <nav class="nav">
-            <div class="nav-brand">
-                <h1>My Blog</h1>
-            </div>
-            <!-- 汉堡菜单按钮 -->
-            <button class="hamburger" id="hamburger" aria-label="切换菜单">
-                <span></span>
-                <span></span>
-                <span></span>
-            </button>
-            <ul class="nav-menu" id="navMenu">
-                <li><a href="#home" class="nav-link active">首页</a></li>
-                <li><a href="#about" class="nav-link">关于我</a></li>
-                <li><a href="#posts" class="nav-link">文章</a></li>
-                <li><a href="#resources" class="nav-link">学习资料</a></li>
-                <li><a href="#media" class="nav-link">游戏媒体</a></li>
-                <li><a href="admin.html" class="nav-link" id="adminLink">后台管理</a></li>
-            </ul>
-        </nav>
-    </header>
-
-    <main>
-        <!-- 首页区域 -->
-        <section id="home" class="section active">
-            <div class="hero">
-                <h2>欢迎来到我的博客</h2>
-                <p>分享技术、游戏与生活</p>
-            </div>
-        </section>
-
-        <!-- 关于我 -->
-        <section id="about" class="section">
-            <div class="container">
-                <h2 class="section-title">关于我</h2>
-                <div class="about-card">
-                    <div class="about-avatar">
-                        <div class="avatar-placeholder">?</div>
-                    </div>
-                    <div class="about-info">
-                        <h3>Dario</h3>
-                        <p>这是一个练手项目，用于学习全栈开发、数据库操作和服务器部署。</p>
-                        <div class="about-stats">
-                            <div class="stat-item">
-                                <span class="stat-value" id="post-count">-</span>
-                                <span class="stat-label">文章</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-value" id="resource-count">-</span>
-                                <span class="stat-label">资料</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-value" id="media-count">-</span>
-                                <span class="stat-label">媒体</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- 文章列表 -->
-        <section id="posts" class="section">
-            <div class="container">
-                <h2 class="section-title">文章列表</h2>
-                <div id="posts-list" class="posts-grid">
-                    <!-- 动态加载 -->
-                    <p class="loading">加载中...</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- 学习资料 -->
-        <section id="resources" class="section">
-            <div class="container">
-                <h2 class="section-title">学习资料</h2>
-                <div id="resources-list" class="resources-grid">
-                    <!-- 动态加载 -->
-                    <p class="loading">加载中...</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- 游戏媒体 -->
-        <section id="media" class="section">
-            <div class="container">
-                <h2 class="section-title">游戏媒体</h2>
-                <div class="media-tabs">
-                    <button class="tab-btn active" data-type="image">截图</button>
-                    <button class="tab-btn" data-type="video">视频</button>
-                </div>
-                <div id="media-list" class="media-grid">
-                    <!-- 动态加载 -->
-                    <p class="loading">加载中...</p>
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <!-- 页脚 -->
-    <footer class="footer">
-        <p>&copy; 2026 My Blog. Web Dev Practice Project.</p>
-    </footer>
-
-    <!-- 预览模态框 -->
-    <div class="preview-modal" id="previewModal" onclick="closePreview(event)">
-        <div class="preview-content">
-            <button class="preview-close" onclick="closePreview()">&times;</button>
-            <div id="previewContainer"></div>
-        </div>
-    </div>
-
-    <script src="js/config.js"></script>
-    <script src="js/api.js"></script>
-    <script src="js/main.js"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="AI Web Dev - 个人博客系统" />
+    <title>My Blog</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
 </html>
