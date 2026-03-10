@@ -5,19 +5,54 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="0169a72c-5b74-4acd-b1a7-94aa38dc34f3" name="更改" comment="本地测试v1.2.1">
+      <change afterPath="$PROJECT_DIR$/backend/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/AI_GUIDE.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/STATUS.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/TODO.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/api/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/api/auth.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/api/media.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/api/post.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/api/resource.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/api/system.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/api/user.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/config.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/database.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/db.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/db_test.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/diagnose_permissions.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/backend/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/wsgi.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/PASSWORDS.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/SERVER_INFO.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/generate_passwords.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/admin.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/css/style.css" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/js/api.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/js/config.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/js/config.prod.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/js/main.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/upload.html" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/frontend/src/router/index.ts" root0="SKIP_HIGHLIGHTING" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 5
@@ -40,21 +75,27 @@
     &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;last_opened_file_path&quot;: &quot;D:/Program/Code/Python/ai_web_dev/frontend&quot;,
+    &quot;last_opened_file_path&quot;: &quot;D:/Program/Code/Python/ai_web_dev/game/assets/audio&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
     &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;D:\\Program\\Code\\Python\\ai_web_dev\\frontend\\node_modules\\typescript\\lib&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="D:\Program\Code\Python\ai_web_dev\game\assets\audio" />
+      <recent name="D:\Program\Code\Python\ai_web_dev\game\assets\player" />
+      <recent name="D:\Program\Code\Python\ai_web_dev\game" />
       <recent name="D:\Program\Code\Python\ai_web_dev\frontend" />
       <recent name="D:\Program\Code\Python\ai_web_dev\uploads\media\videos" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="D:\Program\Code\Python\ai_web_dev\backend\tests" />
+      <recent name="D:\Program\Code\Python\ai_web_dev\scripts" />
       <recent name="D:\Program\Code\Python\ai_web_dev\.claude" />
       <recent name="D:\Program\Code\Python\ai_web_dev\docs" />
     </key>
@@ -86,7 +127,18 @@
       <workItem from="1772973650623" duration="377000" />
       <workItem from="1772974149353" duration="12000" />
       <workItem from="1772980236760" duration="25000" />
-      <workItem from="1772980299816" duration="3052000" />
+      <workItem from="1772980299816" duration="11638000" />
+      <workItem from="1772992100062" duration="10000" />
+      <workItem from="1773020303476" duration="5934000" />
+      <workItem from="1773031013618" duration="2818000" />
+      <workItem from="1773036307563" duration="766000" />
+      <workItem from="1773037340024" duration="11554000" />
+      <workItem from="1773051721095" duration="101000" />
+      <workItem from="1773051840766" duration="160000" />
+      <workItem from="1773053067739" duration="6595000" />
+      <workItem from="1773115143547" duration="3280000" />
+      <workItem from="1773118515921" duration="136000" />
+      <workItem from="1773129946567" duration="382000" />
     </task>
     <task id="LOCAL-00001" summary="本地测试v1.0">
       <option name="closed" value="true" />
@@ -128,11 +180,25 @@
       <option name="project" value="LOCAL" />
       <updated>1772974019040</updated>
     </task>
-    <option name="localTasksCounter" value="6" />
+    <task id="LOCAL-00006" summary="本地测试v1.2.1">
+      <option name="closed" value="true" />
+      <created>1772983542215</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1772983542215</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="UnknownFeatures">
+    <option featureType="dependencySupport" implementationName="executable:docker" />
+    <option featureType="dependencySupport" implementationName="javascript:npm:vite" />
+    <option featureType="dependencySupport" implementationName="executable:kubectl" />
+    <option featureType="dependencySupport" implementationName="javascript:npm:vue" />
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="本地测试v1.0" />
