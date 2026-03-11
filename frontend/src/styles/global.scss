@@ -1,7 +1,5 @@
 // VaultShare 全局样式
 
-@import './variables.scss';
-
 * {
   margin: 0;
   padding: 0;
@@ -12,12 +10,33 @@ html {
   font-size: $font-base;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  color-scheme: light;
+  // 始终显示滚动条，防止暗夜模式切换时滚动条出现/消失引起布局抖动
+  overflow-y: scroll;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+// 暗夜模式平滑过渡：仅在切换瞬间启用，避免干扰正常 hover/focus 动画
+html.color-scheme-transition,
+html.color-scheme-transition *,
+html.color-scheme-transition *::before,
+html.color-scheme-transition *::after {
+  transition:
+    background-color 0.25s ease,
+    border-color 0.25s ease,
+    color 0.2s ease,
+    box-shadow 0.25s ease !important;
+  transition-delay: 0s !important;
 }
 
 body {
   font-family: $font-sans;
   line-height: 1.6;
   color: $color-gray-800;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 // 容器
@@ -151,11 +170,12 @@ html.dark {
   transition: all $transition-base !important;
 
   &.el-button--primary {
-    background: linear-gradient(135deg, $color-primary 0%, $color-secondary 100%) !important;
-    border: none !important;
+    background: $color-primary !important;
+    border-color: $color-primary !important;
 
     &:hover {
-      opacity: 0.9 !important;
+      background: $color-primary-dark !important;
+      border-color: $color-primary-dark !important;
     }
   }
 }

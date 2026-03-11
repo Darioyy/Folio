@@ -41,36 +41,19 @@ const routes: RouteRecordRaw[] = [
     ]
   },
 
-  // 个人工作台
+  // 我的空间
   {
-    path: '/hub',
-    name: 'Hub',
-    component: () => import('@/views/Hub/index.vue'),
-    meta: { title: '个人工作台', requiresAuth: true, hideInMenu: true },
-    redirect: '/hub/private',
-    children: [
-      {
-        path: 'private',
-        name: 'HubPrivate',
-        component: () => import('@/views/Hub/PrivateFiles.vue'),
-        meta: { title: '私有文件库', requiresAuth: true }
-      },
-      {
-        path: 'published',
-        name: 'HubPublished',
-        component: () => import('@/views/Hub/PublishedFiles.vue'),
-        meta: { title: '公共发布区', requiresAuth: true }
-      }
-    ]
+    path: '/space',
+    name: 'Space',
+    component: () => import('@/views/Space/index.vue'),
+    meta: { title: '我的空间', requiresAuth: true, hideInMenu: true }
   },
 
-  // 个人中心（独立页面）
-  {
-    path: '/profile',
-    name: 'Profile',
-    component: () => import('@/views/Profile/index.vue'),
-    meta: { title: '个人中心', requiresAuth: true }
-  },
+  // 旧路由重定向（向后兼容）
+  { path: '/hub', redirect: '/space' },
+  { path: '/hub/private', redirect: '/space' },
+  { path: '/hub/published', redirect: '/space' },
+  { path: '/profile', redirect: '/space' },
 
   // 用户主页（公开访问）
   {
@@ -78,6 +61,22 @@ const routes: RouteRecordRaw[] = [
     name: 'UserProfile',
     component: () => import('@/views/UserProfile/index.vue'),
     meta: { title: '用户主页' }
+  },
+
+  // 文件详情页（公开访问，私有文件登录后验证）
+  {
+    path: '/file/:id',
+    name: 'FileDetail',
+    component: () => import('@/views/File/index.vue'),
+    meta: { title: '文件详情' }
+  },
+
+  // 搜索结果页
+  {
+    path: '/search',
+    name: 'Search',
+    component: () => import('@/views/Search/index.vue'),
+    meta: { title: '搜索' }
   },
 
   // 关注列表
@@ -108,8 +107,14 @@ const routes: RouteRecordRaw[] = [
     name: 'Admin',
     component: () => import('@/views/Admin/index.vue'),
     meta: { title: '后台管理', requiresAuth: true, requiresAdmin: true, hideInMenu: true },
-    redirect: '/admin/users',
+    redirect: '/admin/dashboard',
     children: [
+      {
+        path: 'dashboard',
+        name: 'AdminDashboard',
+        component: () => import('@/views/Admin/Dashboard.vue'),
+        meta: { title: '数据概览', requiresAdmin: true }
+      },
       {
         path: 'users',
         name: 'AdminUsers',
@@ -123,23 +128,20 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '文章管理', requiresAdmin: true }
       },
       {
-        path: 'media',
-        name: 'AdminMedia',
-        component: () => import('@/views/Admin/Media.vue'),
-        meta: { title: '媒体管理', requiresAdmin: true }
+        path: 'content',
+        name: 'AdminContent',
+        component: () => import('@/views/Admin/Content.vue'),
+        meta: { title: '内容管理', requiresAdmin: true }
       },
       {
-        path: 'resources',
-        name: 'AdminResources',
-        component: () => import('@/views/Admin/Resources.vue'),
-        meta: { title: '资源管理', requiresAdmin: true }
+        path: 'settings',
+        name: 'AdminSettings',
+        component: () => import('@/views/Admin/Settings.vue'),
+        meta: { title: '系统设置', requiresAdmin: true }
       },
-      {
-        path: 'categories',
-        name: 'AdminCategories',
-        component: () => import('@/views/Admin/Categories.vue'),
-        meta: { title: '分类管理', requiresAdmin: true }
-      }
+      // 旧路由重定向
+      { path: 'media', redirect: '/admin/content' },
+      { path: 'resources', redirect: '/admin/content' }
     ]
   },
 
@@ -170,7 +172,7 @@ router.beforeEach(async (to, from, next) => {
 
   // 设置页面标题
   if (title) {
-    document.title = `${title} - My Blog`
+    document.title = `${title} - VaultShare`
   }
 
   // 需要登录的页面

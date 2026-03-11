@@ -1,348 +1,230 @@
 <template>
   <div class="plaza-page">
     <div class="container">
-      <!-- 页面头部 -->
-      <div class="page-header">
-        <h1 class="page-title">公共大厅</h1>
-        <p class="page-subtitle">发现优质内容，探索社区创作</p>
-      </div>
-
-      <!-- 内容类型标签 -->
-      <div class="content-tabs">
-        <el-radio-group v-model="contentType" @change="handleContentTypeChange">
-          <el-radio-button value="all">
-            <el-icon><Grid /></el-icon>
-            全部
-          </el-radio-button>
-          <el-radio-button value="posts">
-            <el-icon><Document /></el-icon>
-            文章
-          </el-radio-button>
-          <el-radio-button value="images">
-            <el-icon><Picture /></el-icon>
-            图片
-          </el-radio-button>
-          <el-radio-button value="videos">
-            <el-icon><VideoPlay /></el-icon>
-            视频
-          </el-radio-button>
-          <el-radio-button value="resources">
-            <el-icon><Folder /></el-icon>
-            资源
-          </el-radio-button>
-        </el-radio-group>
-
-        <!-- 排序方式 -->
-        <el-select v-model="sortBy" @change="loadContent" placeholder="排序方式" style="width: 120px">
-          <el-option label="最新" value="latest" />
-          <el-option label="热门" value="popular" />
-        </el-select>
-      </div>
-
-      <!-- 加载状态 -->
-      <div v-if="loading && currentPage === 1" class="content-loading">
-        <el-skeleton :rows="6" animated />
-      </div>
-
-      <!-- 内容网格 -->
-      <div v-else-if="hasContent" class="content-grid">
-        <!-- 文章卡片 -->
-        <template v-if="showPosts">
-          <div
-            v-for="item in posts"
-            :key="`post-${item.id}`"
-            class="content-card post-card"
-            @click="goToPost(item.id)"
+      <!-- 筛选栏 -->
+      <div class="filter-bar">
+        <!-- 分类 tabs -->
+        <div class="content-tabs">
+          <span
+            v-for="tab in tabs"
+            :key="tab.value"
+            :class="['tab-item', { active: activeTab === tab.value }]"
+            @click="handleTabChange(tab.value)"
           >
-            <div class="post-icon">
-              <el-icon :size="32"><Document /></el-icon>
-            </div>
-            <div class="post-info">
-              <h4 class="post-title">{{ item.title }}</h4>
-              <p v-if="item.summary" class="post-summary">{{ item.summary }}</p>
-              <div class="post-meta">
-                <span>
-                  <el-icon><User /></el-icon>
-                  {{ item.author_name || '匿名' }}
-                </span>
-                <span>
-                  <el-icon><View /></el-icon>
-                  {{ item.view_count || 0 }}
-                </span>
-                <span>{{ formatDate(item.created_at) }}</span>
-              </div>
-            </div>
+            {{ tab.label }}
+          </span>
+        </div>
+
+        <!-- 右侧控件 -->
+        <div class="bar-right">
+          <button
+            class="view-toggle-btn"
+            :data-tip="viewMode === 'grid' ? '列表' : '网格'"
+            @click="toggleViewMode"
+          >
+            <svg v-if="viewMode === 'list'" viewBox="0 0 16 16" width="15" height="15" fill="currentColor">
+              <rect x="1" y="2" width="14" height="2" rx="1"/>
+              <rect x="1" y="7" width="14" height="2" rx="1"/>
+              <rect x="1" y="12" width="14" height="2" rx="1"/>
+            </svg>
+            <svg v-else viewBox="0 0 16 16" width="15" height="15" fill="currentColor">
+              <rect x="1" y="1" width="6" height="6" rx="1"/>
+              <rect x="9" y="1" width="6" height="6" rx="1"/>
+              <rect x="1" y="9" width="6" height="6" rx="1"/>
+              <rect x="9" y="9" width="6" height="6" rx="1"/>
+            </svg>
+          </button>
+          <el-select v-model="sortBy" @change="loadFiles(true)" size="small" style="width: 90px">
+            <el-option label="最新" value="latest" />
+            <el-option label="最多下载" value="popular" />
+          </el-select>
+        </div>
+      </div>
+
+      <!-- 加载占位 -->
+      <div v-if="loading" class="content-loading">
+        <template v-if="viewMode === 'grid'">
+          <div class="grid-skeleton">
+            <el-skeleton v-for="i in 12" :key="i" animated>
+              <template #template>
+                <el-skeleton-item variant="image" style="height: 160px; border-radius: 8px;" />
+                <div style="padding: 8px 4px;">
+                  <el-skeleton-item variant="p" style="width: 80%" />
+                  <el-skeleton-item variant="p" style="width: 50%; margin-top: 6px" />
+                </div>
+              </template>
+            </el-skeleton>
           </div>
         </template>
+        <el-skeleton v-else :rows="8" animated />
+      </div>
 
-        <!-- 图片卡片 -->
-        <template v-if="showImages">
-          <div
-            v-for="item in imagesList"
-            :key="`image-${item.id}`"
-            class="content-card media-card"
-            @click="viewMedia(item)"
-          >
-            <div class="media-thumb">
+      <!-- 网格视图 -->
+      <div v-else-if="files.length && viewMode === 'grid'" class="content-grid">
+        <FileCard
+          v-for="item in files"
+          :key="item.id"
+          :file="item"
+          :show-badge="false"
+          @click="viewFile"
+        />
+      </div>
+
+      <!-- 列表视图 -->
+      <div v-else-if="files.length && viewMode === 'list'" class="content-list">
+        <div class="list-header">
+          <span class="col-icon"></span>
+          <span class="col-name">文件名</span>
+          <span class="col-author hide-mobile">上传者</span>
+          <span class="col-size hide-mobile">大小</span>
+          <span class="col-time">上传时间</span>
+        </div>
+        <div
+          v-for="item in files"
+          :key="item.id"
+          class="list-row"
+          @click="viewFile(item)"
+        >
+          <span class="col-icon">
+            <div v-if="item.file_category === 'image'" class="list-thumb">
               <img
-                :src="getThumbnailUrl(item.id)"
+                :src="getFileUrl(item.thumbnail_path || item.file_path)"
                 :alt="item.title"
                 loading="lazy"
+                @error="(e) => ((e.target as HTMLImageElement).style.display = 'none')"
               />
             </div>
-            <div class="media-info">
-              <h4 class="media-title">{{ item.title }}</h4>
-              <div class="media-meta">
-                <span class="author-link" @click.stop="goToUserProfile(item.uploader_id, item.uploader_name)">
-                  <el-icon><User /></el-icon>
-                  {{ item.uploader_name || '未知用户' }}
-                </span>
-              </div>
-            </div>
-          </div>
-        </template>
-
-        <!-- 视频卡片 -->
-        <template v-if="showVideos">
-          <div
-            v-for="item in videosList"
-            :key="`video-${item.id}`"
-            class="content-card media-card"
-            @click="viewMedia(item)"
-          >
-            <div class="media-thumb">
+            <div v-else-if="item.file_category === 'video'" class="list-video">
               <img
-                :src="getThumbnailUrl(item.id)"
+                v-if="item.thumbnail_path"
+                :src="getFileUrl(item.thumbnail_path)"
                 :alt="item.title"
                 loading="lazy"
+                @error="(e) => ((e.target as HTMLImageElement).style.display = 'none')"
               />
-              <div class="play-overlay">
-                <el-icon :size="32"><VideoPlay /></el-icon>
-              </div>
+              <el-icon v-else :size="20" style="color: #6366f1"><VideoPlay /></el-icon>
             </div>
-            <div class="media-info">
-              <h4 class="media-title">{{ item.title }}</h4>
-              <div class="media-meta">
-                <span class="author-link" @click.stop="goToUserProfile(item.uploader_id, item.uploader_name)">
-                  <el-icon><User /></el-icon>
-                  {{ item.uploader_name || '未知用户' }}
-                </span>
-              </div>
-            </div>
+            <FileTypeIcon
+              v-else
+              :mime-type="item.mime_type"
+              :file-name="item.file_name"
+              size="sm"
+            />
+          </span>
+          <div class="col-name">
+            <span class="row-title">{{ item.title }}</span>
+            <span v-if="item.description" class="row-desc">{{ item.description }}</span>
           </div>
-        </template>
-
-        <!-- 资源卡片 -->
-        <template v-if="showResources">
           <div
-            v-for="item in resourceList"
-            :key="`resource-${item.id}`"
-            class="content-card resource-card"
-            @click="viewResource(item)"
+            class="col-author hide-mobile"
+            @click.stop="goToUser(item.username)"
           >
-            <div class="resource-icon">
-              <el-icon :size="48"><Folder /></el-icon>
-            </div>
-            <div class="resource-info">
-              <h4 class="resource-title">{{ item.title }}</h4>
-              <div class="resource-meta">
-                <span v-if="item.file_size">
-                  <el-icon><Document /></el-icon>
-                  {{ formatFileSize(item.file_size) }}
-                </span>
-                <span>
-                  <el-icon><Download /></el-icon>
-                  {{ item.download_count || 0 }}
-                </span>
-                <span class="author-link" @click.stop="goToUserProfile(item.uploader_id, item.uploader_name)">
-                  <el-icon><User /></el-icon>
-                  {{ item.uploader_name || '未知用户' }}
-                </span>
-              </div>
-            </div>
+            <el-avatar :size="20" :src="getFileUrl(item.avatar ?? '')">
+              {{ (item.nickname || item.username || '?')[0].toUpperCase() }}
+            </el-avatar>
+            <span class="author-name">{{ item.nickname || item.username }}</span>
           </div>
-        </template>
+          <span class="col-size hide-mobile">{{ formatFileSize(item.file_size) }}</span>
+          <span class="col-time" :title="formatDate(item.created_at)">{{ formatDate(item.created_at, 'MM-DD HH:mm') }}</span>
+        </div>
       </div>
 
-      <el-empty v-else description="暂无公开内容" />
+      <el-empty v-else-if="!loading" description="暂无公开内容" :image-size="80" />
 
       <!-- 加载更多 -->
-      <div v-if="hasMore" class="load-more">
-        <el-button @click="loadMore" :loading="loadingMore">
-          加载更多
-        </el-button>
+      <div v-if="hasMore && !loading" class="load-more">
+        <el-button @click="loadMore" :loading="loadingMore" plain>加载更多</el-button>
       </div>
     </div>
 
-    <!-- 媒体预览对话框 -->
     <FilePreview
       v-model="previewVisible"
       :file="currentFile"
-      :type="currentFileType"
+      :type="previewType"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import {
-  Grid,
-  Document,
-  Picture,
-  Folder,
-  VideoPlay,
-  User,
-  Download,
-  View
-} from '@element-plus/icons-vue'
+import { VideoPlay } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import FileCard from '@/components/business/FileCard.vue'
+import FileTypeIcon from '@/components/business/FileTypeIcon.vue'
 import FilePreview from '@/components/business/FilePreview.vue'
-import { hubApi } from '@/api/modules/hub'
-import { mediaApi } from '@/api/modules/media'
-import { postsApi } from '@/api/modules/posts'
-import type { HubMedia, HubResource } from '@/api/modules/hub'
-import { formatDate, formatFileSize } from '@/utils/format'
+import { filesApi } from '@/api/modules/files'
+import type { FileItem } from '@/types/models'
+import { fromNow, formatFileSize, getFileUrl, formatDate } from '@/utils/format'
 
 const router = useRouter()
 
-// 内容类型
-type ContentType = 'all' | 'posts' | 'images' | 'videos' | 'resources'
+type TabType = 'all' | 'image' | 'video' | 'resource'
+type ViewMode = 'grid' | 'list'
 
-const contentType = ref<ContentType>('all')
+const tabs: { value: TabType; label: string }[] = [
+  { value: 'all', label: '全部' },
+  { value: 'resource', label: '资源' },
+  { value: 'image', label: '图片' },
+  { value: 'video', label: '视频' },
+]
+
+const activeTab = ref<TabType>('all')
+const _savedPlazaView = localStorage.getItem('vs-plaza-view') as ViewMode | null
+const viewMode = ref<ViewMode>(_savedPlazaView || 'grid')
+
+function toggleViewMode() {
+  viewMode.value = viewMode.value === 'grid' ? 'list' : 'grid'
+}
+
+watch(viewMode, (val) => {
+  localStorage.setItem('vs-plaza-view', val)
+})
 const sortBy = ref<'latest' | 'popular'>('latest')
 
 const loading = ref(false)
 const loadingMore = ref(false)
 const currentPage = ref(1)
-
-const posts = ref<any[]>([])
-const mediaList = ref<HubMedia[]>([])
-const resourceList = ref<HubResource[]>([])
+const pageSize = 24
+const files = ref<FileItem[]>([])
+const totalCount = ref(0)
 
 const previewVisible = ref(false)
-const currentFile = ref<HubMedia | HubResource | null>(null)
-const currentFileType = ref<'media' | 'resource'>('media')
+const currentFile = ref<FileItem | null>(null)
 
-// 是否显示文章
-const showPosts = computed(() => contentType.value === 'all' || contentType.value === 'posts')
+const hasMore = computed(() => files.value.length < totalCount.value)
 
-// 是否显示图片
-const showImages = computed(() => contentType.value === 'all' || contentType.value === 'images')
-
-// 是否显示视频
-const showVideos = computed(() => contentType.value === 'all' || contentType.value === 'videos')
-
-// 是否显示资源
-const showResources = computed(() => contentType.value === 'all' || contentType.value === 'resources')
-
-// 是否有内容
-const hasContent = computed(() => {
-  return posts.value.length > 0 || mediaList.value.length > 0 || resourceList.value.length > 0
+const previewType = computed<'media' | 'resource'>(() => {
+  if (!currentFile.value) return 'media'
+  return currentFile.value.file_category === 'resource' ? 'resource' : 'media'
 })
 
-// 是否还有更多内容
-const hasMore = computed(() => {
-  const totalItems = (showPosts.value ? posts.value.length : 0) +
-                     (showImages.value ? imagesList.value.length : 0) +
-                     (showVideos.value ? videosList.value.length : 0) +
-                     (showResources.value ? resourceList.value.length : 0)
-  return totalItems >= currentPage.value * 20
-})
-
-// 分离的图片和视频列表
-const imagesList = computed(() => mediaList.value.filter(m => m.file_type === 'image'))
-const videosList = computed(() => mediaList.value.filter(m => m.file_type === 'video'))
-
-// 加载内容
-async function loadContent(reset = true) {
+async function loadFiles(reset = true) {
   if (reset) {
     currentPage.value = 1
-    posts.value = []
-    mediaList.value = []
-    resourceList.value = []
+    files.value = []
+    totalCount.value = 0
   }
-
-  loading.value = reset
-  if (!reset) loadingMore.value = true
+  reset ? (loading.value = true) : (loadingMore.value = true)
 
   try {
-    // 加载文章
-    if (showPosts.value) {
-      const postsRes = await postsApi.getList({
-        page: currentPage.value,
-        limit: 20,
-        status: 'published'
-      })
-      const postsData = postsRes.data || []
-      if (reset) {
-        posts.value = postsData
-      } else {
-        posts.value.push(...postsData)
-      }
+    const category = activeTab.value === 'all'
+      ? undefined
+      : activeTab.value as 'image' | 'video' | 'resource'
+    const res = await filesApi.getPublicList({
+      page: currentPage.value,
+      page_size: pageSize,
+      ...(category ? { category } : {}),
+    })
+    const newItems = res.items || []
+
+    if (sortBy.value === 'popular') {
+      newItems.sort((a, b) => (b.download_count || 0) - (a.download_count || 0))
     }
 
-    // 当显示全部时，需要同时加载图片和视频
-    if (contentType.value === 'all') {
-      // 加载所有媒体
-      const mediaRes = await hubApi.getPublicMedia({
-        page: currentPage.value,
-        page_size: 40
-      })
-      if (reset) {
-        mediaList.value = mediaRes.data.items || []
-      } else {
-        mediaList.value.push(...(mediaRes.data.items || []))
-      }
-    } else {
-      // 加载图片
-      if (showImages.value) {
-        const imagesRes = await hubApi.getPublicMedia({
-          page: currentPage.value,
-          page_size: 20,
-          type: 'image'
-        })
-        if (reset) {
-          mediaList.value = imagesRes.data.items || []
-        } else {
-          mediaList.value.push(...(imagesRes.data.items || []))
-        }
-      }
-
-      // 加载视频
-      if (showVideos.value) {
-        const videosRes = await hubApi.getPublicMedia({
-          page: currentPage.value,
-          page_size: 20,
-          type: 'video'
-        })
-        if (reset) {
-          mediaList.value = videosRes.data.items || []
-        } else {
-          mediaList.value.push(...(videosRes.data.items || []))
-        }
-      }
-    }
-
-    // 加载资源
-    if (showResources.value) {
-      const resourceRes = await hubApi.getPublicResources({
-        page: currentPage.value,
-        page_size: 20
-      })
-      if (reset) {
-        resourceList.value = resourceRes.data.items || []
-      } else {
-        resourceList.value.push(...(resourceRes.data.items || []))
-      }
-    }
-
-    // 按排序方式排序
-    if (sortBy.value === 'popular' && reset) {
-      sortContentByPopularity()
-    }
-  } catch (error) {
-    console.error('加载内容失败:', error)
+    reset ? (files.value = newItems) : files.value.push(...newItems)
+    totalCount.value = res.pagination?.total ?? 0
+  } catch {
     ElMessage.error('加载内容失败')
   } finally {
     loading.value = false
@@ -350,340 +232,311 @@ async function loadContent(reset = true) {
   }
 }
 
-// 按热度排序
-function sortContentByPopularity() {
-  // 文章按浏览量排序
-  posts.value.sort((a, b) => (b.view_count || 0) - (a.view_count || 0))
-  // 媒体按上传时间排序（暂无互动数据）
-  mediaList.value.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-  // 资源按下载量排序
-  resourceList.value.sort((a, b) => (b.download_count || 0) - (a.download_count || 0))
+function handleTabChange(tab: TabType) {
+  activeTab.value = tab
+  // Auto-switch view per content type
+  if (tab === 'resource') viewMode.value = 'list'
+  else viewMode.value = 'grid'
+  loadFiles(true)
 }
 
-// 内容类型切换
-function handleContentTypeChange() {
-  loadContent(true)
-}
-
-// 加载更多
 function loadMore() {
   currentPage.value++
-  loadContent(false)
+  loadFiles(false)
 }
 
-// 获取媒体缩略图 URL
-function getThumbnailUrl(id: number): string {
-  return mediaApi.getThumbnailUrl(id)
+function viewFile(file: FileItem) {
+  router.push({ name: 'FileDetail', params: { id: file.id } })
 }
 
-// 查看媒体
-function viewMedia(media: HubMedia) {
-  currentFile.value = media
-  currentFileType.value = 'media'
-  previewVisible.value = true
+function goToUser(username?: string) {
+  if (username) router.push({ name: 'UserProfile', params: { username } })
 }
 
-// 查看资源
-function viewResource(resource: HubResource) {
-  currentFile.value = resource
-  currentFileType.value = 'resource'
-  previewVisible.value = true
-}
-
-// 跳转到文章详情
-function goToPost(id: number) {
-  window.open(`/posts/${id}`, '_blank')
-}
-
-// 跳转到用户主页
-function goToUserProfile(userId: number, username?: string) {
-  if (username) {
-    router.push({ name: 'UserProfile', params: { username } })
-  } else {
-    // 如果没有提供用户名，尝试从列表中查找
-    const media = mediaList.value.find(m => m.uploader_id === userId)
-    if (media?.uploader_name) {
-      router.push({ name: 'UserProfile', params: { username: media.uploader_name } })
-    }
-  }
-}
-
-onMounted(() => {
-  loadContent()
-})
+onMounted(() => loadFiles())
 </script>
 
 <style scoped lang="scss">
 .plaza-page {
   min-height: 100vh;
-  background: #f9fafb;
-  padding-bottom: 40px;
-
-  html.dark & {
-    background: #0f172a;
-  }
-
-  .container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
-  }
+  background: var(--el-bg-color-page);
+  padding-bottom: $spacing-3xl;
 }
 
-.page-header {
-  text-align: center;
-  margin-bottom: 32px;
-
-  .page-title {
-    font-size: 32px;
-    font-weight: 700;
-    margin: 0 0 8px 0;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .page-subtitle {
-    font-size: 14px;
-    color: var(--el-text-color-secondary);
-    margin: 0;
-  }
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: $spacing-lg $spacing-md;
 }
 
+// 筛选栏
+.filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-md;
+  margin-bottom: $spacing-lg;
+  flex-wrap: wrap;
+}
+
+// 下划线 tab 导航
 .content-tabs {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
+  gap: 2px;
+  border-bottom: 1px solid var(--el-border-color-light);
 
-  :deep(.el-radio-group) {
-    flex-wrap: wrap;
-  }
+  .tab-item {
+    padding: $spacing-sm $spacing-md;
+    font-size: $font-sm;
+    color: var(--el-text-color-secondary);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color $transition-fast, border-color $transition-fast;
+    white-space: nowrap;
+    user-select: none;
 
-  .type-filter {
-    margin-left: auto;
+    &:hover {
+      color: var(--el-text-color-primary);
+    }
 
-    @media (max-width: 768px) {
-      margin-left: 0;
-      width: 100%;
+    &.active {
+      color: $color-primary;
+      border-bottom-color: $color-primary;
+      font-weight: 500;
     }
   }
+}
 
-  :deep(.el-select) {
-    width: 100px !important;
+// 右侧控件组
+.bar-right {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+// 视图切换单按钮
+.view-toggle-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--el-border-color-light);
+  background: var(--el-bg-color);
+  color: var(--el-text-color-secondary);
+  cursor: pointer;
+  border-radius: $radius-md;
+  transition: background $transition-fast, color $transition-fast, border-color $transition-fast;
+
+  &:hover {
+    border-color: $color-primary;
+    color: $color-primary;
+  }
+
+  // CSS tooltip —— 按钮正下方居中浮出
+  &[data-tip]::after {
+    content: attr(data-tip);
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 50%;
+    translate: -50% 0;
+    z-index: 9999;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11.5px;
+    font-weight: 450;
+    line-height: 1.4;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(-4px) scale(0.96);
+    transform-origin: top center;
+    transition: opacity 0.12s ease, transform 0.12s ease;
+    transition-delay: 0.06s;
+    background: rgba(22, 24, 30, 0.82);
+    color: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.22);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+  }
+
+  &[data-tip]:hover::after {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 
-.content-loading {
-  padding: 40px 0;
+:global(html.dark) .view-toggle-btn[data-tip]::after {
+  background: rgba(48, 51, 62, 0.90);
+  color: rgba(222, 225, 232, 0.92);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.40);
+  border-color: rgba(255, 255, 255, 0.10);
 }
 
+// 加载占位
+.content-loading {
+  padding: $spacing-xl 0;
+}
+
+.grid-skeleton {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: $spacing-md;
+}
+
+// 内容网格
 .content-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: $spacing-md;
+  margin-bottom: $spacing-lg;
 }
 
-.content-card {
-  background: #ffffff;
-  border-radius: 8px;
+// 列表视图
+.content-list {
+  background: var(--el-bg-color);
+  border: 1px solid var(--el-border-color-light);
+  border-radius: $radius-lg;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  transition: all 0.2s;
-  cursor: pointer;
+  margin-bottom: $spacing-lg;
+}
 
-  html.dark & {
-    background: #1e293b;
+.list-header {
+  display: grid;
+  grid-template-columns: 44px 1fr 140px 80px 100px;
+  gap: $spacing-md;
+  align-items: center;
+  padding: $spacing-sm $spacing-md;
+  background: var(--el-fill-color-light);
+  border-bottom: 1px solid var(--el-border-color-light);
+  font-size: $font-xs;
+  font-weight: 500;
+  color: var(--el-text-color-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.list-row {
+  display: grid;
+  grid-template-columns: 44px 1fr 140px 80px 100px;
+  gap: $spacing-md;
+  align-items: center;
+  padding: $spacing-sm $spacing-md;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  cursor: pointer;
+  transition: background $transition-fast;
+
+  &:last-child {
+    border-bottom: none;
   }
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    background: var(--el-fill-color-light);
   }
 }
 
-// 文章卡片
-.post-card {
+.col-icon {
   display: flex;
-  flex-direction: column;
-  padding: 16px;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 
-  .post-icon {
-    width: 48px;
-    height: 48px;
+  .list-thumb,
+  .list-video {
+    width: 36px;
+    height: 36px;
+    border-radius: $radius-sm;
+    overflow: hidden;
+    background: var(--el-fill-color);
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-    border-radius: 8px;
-    color: white;
-    margin-bottom: 12px;
-  }
-
-  .post-info {
-    flex: 1;
-
-    .post-title {
-      font-size: 16px;
-      font-weight: 600;
-      margin: 0 0 8px 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-    }
-
-    .post-summary {
-      font-size: 13px;
-      color: var(--el-text-color-secondary);
-      margin: 0 0 8px 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-    }
-
-    .post-meta {
-      display: flex;
-      gap: 8px;
-      font-size: 11px;
-      color: var(--el-text-color-secondary);
-      flex-wrap: wrap;
-
-      span {
-        display: flex;
-        align-items: center;
-        gap: 3px;
-      }
-    }
-  }
-}
-
-// 媒体卡片
-.media-card {
-  .media-thumb {
-    aspect-ratio: 16 / 9;
-    position: relative;
-    overflow: hidden;
 
     img {
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
-
-    .play-overlay {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(0, 0, 0, 0.3);
-      color: white;
-    }
-  }
-
-  .media-info {
-    padding: 10px;
-
-    .media-title {
-      font-size: 13px;
-      font-weight: 500;
-      margin: 0 0 6px 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .media-meta {
-      font-size: 11px;
-      color: var(--el-text-color-secondary);
-
-      span {
-        display: flex;
-        align-items: center;
-        gap: 3px;
-      }
-
-      .author-link {
-        cursor: pointer;
-        transition: color 0.2s;
-
-        &:hover {
-          color: #6366f1;
-        }
-      }
-    }
   }
 }
 
-// 资源卡片
-.resource-card {
+.col-name {
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  padding: 16px;
+  gap: 2px;
 
-  .resource-icon {
-    width: 48px;
-    height: 48px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, #10b981, #059669);
-    border-radius: 8px;
-    color: white;
-    margin-bottom: 12px;
+  .row-title {
+    font-size: $font-sm;
+    font-weight: 500;
+    color: var(--el-text-color-primary);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
-  .resource-info {
-    flex: 1;
-
-    .resource-title {
-      font-size: 14px;
-      font-weight: 500;
-      margin: 0 0 6px 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-    }
-
-    .resource-desc {
-      font-size: 12px;
-      color: var(--el-text-color-secondary);
-      margin: 0 0 8px 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-    }
-
-    .resource-meta {
-      display: flex;
-      gap: 8px;
-      font-size: 11px;
-      color: var(--el-text-color-secondary);
-      flex-wrap: wrap;
-
-      span {
-        display: flex;
-        align-items: center;
-        gap: 3px;
-      }
-    }
+  .row-desc {
+    font-size: $font-xs;
+    color: var(--el-text-color-secondary);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 }
 
+.col-author {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  cursor: pointer;
+  min-width: 0;
+  transition: color $transition-fast;
+
+  &:hover {
+    color: $color-primary;
+
+    .author-name {
+      color: $color-primary;
+    }
+  }
+
+  .author-name {
+    font-size: $font-xs;
+    color: var(--el-text-color-secondary);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    max-width: 90px;
+    transition: color $transition-fast;
+  }
+}
+
+.col-size,
+.col-time {
+  font-size: $font-xs;
+  color: var(--el-text-color-secondary);
+  white-space: nowrap;
+}
+
+.hide-mobile {
+  @media (max-width: $breakpoint-md) {
+    display: none;
+  }
+}
+
+@media (max-width: $breakpoint-md) {
+  .list-header,
+  .list-row {
+    grid-template-columns: 44px 1fr 100px;
+  }
+}
+
+// 加载更多
 .load-more {
   display: flex;
   justify-content: center;
-  padding: 16px 0;
+  padding: $spacing-md 0;
 }
 </style>

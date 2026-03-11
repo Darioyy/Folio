@@ -2,7 +2,7 @@
 用户模型 - SQLAlchemy ORM
 """
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, Index, BigInteger
+from sqlalchemy import Column, Integer, String, DateTime, Index, BigInteger, CHAR
 from db.session import db
 
 
@@ -11,13 +11,13 @@ class User(db.Model):
     __tablename__ = 'users'
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment='用户ID')
+    uid = Column(CHAR(8), unique=True, nullable=False, default='00000000', comment='公开用户ID（8位数字字符串）')
     username = Column(String(50), unique=True, nullable=False, index=True, comment='用户名')
     password_hash = Column(String(255), nullable=False, comment='密码哈希值')
     email = Column(String(100), nullable=True, comment='邮箱')
     avatar = Column(String(255), nullable=True, comment='头像路径')
     nickname = Column(String(50), nullable=True, comment='昵称')
     signature = Column(String(200), nullable=True, comment='个性签名')
-    storage_used = Column(BigInteger, default=0, nullable=False, comment='已用存储（字节）')
     storage_quota = Column(BigInteger, default=209715200, nullable=False, comment='存储配额（字节，默认200MB）')
     is_admin = Column(Integer, default=0, nullable=False, comment='是否管理员(0否1是)')
     is_root = Column(Integer, default=0, nullable=False, comment='是否超级管理员(0否1是)')
@@ -34,6 +34,7 @@ class User(db.Model):
 
     __table_args__ = (
         Index('idx_username', 'username'),
+        Index('idx_uid', 'uid'),
         {'comment': '用户表'}
     )
 
@@ -41,12 +42,12 @@ class User(db.Model):
         """转换为字典"""
         return {
             'id': self.id,
+            'uid': self.uid,
             'username': self.username,
             'email': self.email,
             'avatar': self.avatar,
             'nickname': self.nickname,
             'signature': self.signature,
-            'storage_used': self.storage_used,
             'storage_quota': self.storage_quota,
             'is_admin': self.is_admin,
             'is_root': self.is_root,

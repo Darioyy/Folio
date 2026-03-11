@@ -61,9 +61,12 @@ export default defineConfig({
   css: {
     preprocessorOptions: {
       scss: {
-        additionalData: `
-          @use "@/assets/styles/variables.scss" as *;
-        `
+        api: 'modern',
+        additionalData(source: string, filename: string) {
+          // Legacy global stylesheet already manages its own variables
+          if (filename.includes('assets/styles')) return source
+          return `@use "@/styles/variables.scss" as *;\n${source}`
+        }
       }
     }
   }

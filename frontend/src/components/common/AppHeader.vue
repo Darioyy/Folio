@@ -26,6 +26,21 @@
 
       <!-- 右侧操作区 -->
       <div class="header-actions">
+        <!-- 搜索框（桌面端） -->
+        <div class="search-wrap hide-on-mobile">
+          <div :class="['search-box', { focused: searchFocused }]">
+            <el-icon class="search-icon"><Search /></el-icon>
+            <input
+              v-model="searchQuery"
+              class="search-input"
+              placeholder="搜索..."
+              @focus="searchFocused = true"
+              @blur="searchFocused = false"
+              @keyup.enter="doSearch"
+            />
+          </div>
+        </div>
+
         <!-- 暗黑模式切换 -->
         <el-button
           :icon="isDarkMode ? Sunny : Moon"
@@ -35,28 +50,65 @@
           class="theme-toggle"
         />
 
+        <!-- 通知铃铛（登录后显示） -->
+        <el-popover
+          v-if="userStore.isLoggedIn"
+          placement="bottom-end"
+          :width="320"
+          trigger="click"
+          popper-class="notif-popover"
+          @show="loadNotifications"
+        >
+          <template #reference>
+            <el-badge :value="unreadCount > 0 ? (unreadCount > 99 ? '99+' : unreadCount) : ''" :hidden="unreadCount === 0" class="notif-badge">
+              <el-button :icon="Bell" circle text class="notif-btn" />
+            </el-badge>
+          </template>
+          <div class="notif-panel">
+            <div class="notif-panel-header">
+              <span class="notif-panel-title">通知</span>
+              <el-button v-if="unreadCount > 0" link size="small" @click="markAllRead">全部已读</el-button>
+            </div>
+            <div v-if="notifLoading" class="notif-loading">
+              <el-skeleton :rows="3" animated />
+            </div>
+            <div v-else-if="notifications.length === 0" class="notif-empty">暂无通知</div>
+            <div v-else class="notif-list">
+              <div
+                v-for="n in notifications"
+                :key="n.id"
+                :class="['notif-item', { unread: !n.is_read }]"
+              >
+                <el-avatar :size="32" class="notif-avatar">
+                  {{ (n.actor_nickname || n.actor_username || '?')[0] }}
+                </el-avatar>
+                <div class="notif-content">
+                  <p class="notif-text">{{ formatNotif(n) }}</p>
+                  <span class="notif-time">{{ fromNow(n.created_at) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </el-popover>
+
         <!-- 用户菜单 -->
         <template v-if="userStore.isLoggedIn">
-          <el-dropdown trigger="click">
+          <el-dropdown trigger="hover" :show-timeout="60" :hide-timeout="200" :popper-options="{ modifiers: [{ name: 'offset', options: { offset: [0, 4] } }] }">
             <div class="user-dropdown-trigger">
               <UserAvatar :src="avatarUrl" :user="userStore.currentUser" :size="36" />
               <span class="user-name-display">{{ displayName }}</span>
             </div>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item @click="goToDashboard">
-                  <el-icon><FolderOpened /></el-icon>
-                  工作台
-                </el-dropdown-item>
-                <el-dropdown-item @click="goToProfile">
-                  <el-icon><User /></el-icon>
-                  个人中心
+                <el-dropdown-item @click="goToSpace">
+                  <el-icon><Grid /></el-icon>
+                  我的空间
                 </el-dropdown-item>
                 <el-dropdown-item v-if="userStore.isAdminOrRoot" @click="goToAdmin">
                   <el-icon><Setting /></el-icon>
                   后台管理
                 </el-dropdown-item>
-                <el-dropdown-item divided @click="handleLogout">
+                <el-dropdown-item @click="handleLogout">
                   <el-icon><SwitchButton /></el-icon>
                   退出登录
                 </el-dropdown-item>
@@ -67,6 +119,15 @@
         <template v-else>
           <el-button type="primary" @click="goToLogin">登录</el-button>
         </template>
+
+        <!-- 移动端搜索图标 -->
+        <el-button
+          class="show-on-mobile"
+          :icon="Search"
+          circle
+          text
+          @click="goToSearchPage"
+        />
 
         <!-- 移动端菜单按钮 -->
         <el-button
@@ -101,13 +162,9 @@
               <el-avatar :size="40" :icon="UserFilled" />
               <span>{{ displayName }}</span>
             </div>
-            <el-button text block @click="goToDashboard">
-              <el-icon><FolderOpened /></el-icon>
-              工作台
-            </el-button>
-            <el-button text block @click="goToProfile">
-              <el-icon><User /></el-icon>
-              个人中心
+            <el-button text block @click="goToSpace">
+              <el-icon><Grid /></el-icon>
+              我的空间
             </el-button>
             <el-button v-if="userStore.isAdminOrRoot" text block @click="goToAdmin">
               <el-icon><Setting /></el-icon>
@@ -127,17 +184,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import {
-  Menu, Close, Moon, Sunny, UserFilled, User, Setting, SwitchButton,
-  House, Document, Grid
+  Menu, Close, Moon, Sunny, UserFilled, Setting, SwitchButton,
+  House, Grid, Search, Bell
 } from '@element-plus/icons-vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { useUserStore } from '@/stores/user'
 import { useAppStore } from '@/stores/app'
 import { authApi } from '@/api/modules/auth'
+import { notificationsApi } from '@/api/modules/notifications'
+import type { Notification } from '@/types/models'
+import { fromNow } from '@/utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -145,16 +205,24 @@ const userStore = useUserStore()
 const appStore = useAppStore()
 
 const mobileMenuOpen = ref(false)
+const searchQuery = ref('')
+const searchFocused = ref(false)
+
+// 通知
+const unreadCount = ref(0)
+const notifications = ref<Notification[]>([])
+const notifLoading = ref(false)
+let notifTimer: ReturnType<typeof setInterval> | null = null
 
 const isDarkMode = computed(() => appStore.isDarkMode)
 
-// 头像 URL（带时间戳避免缓存）
+// 头像 URL（uid+时间戳双重缓存破坏：切换用户或更新头像时强制重新加载）
 const avatarUrl = computed(() => {
   const user = userStore.currentUser
   if (user?.avatar) {
     const baseUrl = authApi.getAvatarUrl()
     const timestamp = new Date(user.updated_at).getTime()
-    return `${baseUrl}?t=${timestamp}`
+    return `${baseUrl}?uid=${user.id}&t=${timestamp}`
   }
   return undefined
 })
@@ -169,6 +237,56 @@ const navItems = computed(() => [
   { name: 'Home', label: '首页', path: '/', icon: House },
   { name: 'Plaza', label: '公共大厅', path: '/plaza', icon: Grid }
 ])
+
+function doSearch() {
+  const q = searchQuery.value.trim()
+  if (!q) return
+  router.push({ name: 'Search', query: { q } })
+  searchQuery.value = ''
+}
+
+function goToSearchPage() {
+  router.push({ name: 'Search' })
+}
+
+async function fetchUnreadCount() {
+  if (!userStore.isLoggedIn) return
+  try {
+    const res = await notificationsApi.getUnreadCount()
+    unreadCount.value = res.data.count
+  } catch { /* ignore */ }
+}
+
+async function loadNotifications() {
+  notifLoading.value = true
+  try {
+    const res = await notificationsApi.getList(1, 10)
+    notifications.value = res.items
+  } catch { /* ignore */ } finally {
+    notifLoading.value = false
+  }
+}
+
+async function markAllRead() {
+  try {
+    await notificationsApi.readAll()
+    notifications.value = notifications.value.map(n => ({ ...n, is_read: 1 }))
+    unreadCount.value = 0
+  } catch { /* ignore */ }
+}
+
+function formatNotif(n: Notification): string {
+  const actor = n.actor_nickname || n.actor_username || '某用户'
+  const fileTitle = n.extra?.file_title ? `《${n.extra.file_title}》` : '你的文件'
+  const content = n.extra?.content ? `：${n.extra.content}` : ''
+  switch (n.type) {
+    case 'like': return `${actor} 赞了你的 ${fileTitle}`
+    case 'comment': return `${actor} 评论了 ${fileTitle}${content}`
+    case 'reply': return `${actor} 回复了你的评论${content}`
+    case 'follow': return `${actor} 关注了你`
+    default: return '新通知'
+  }
+}
 
 function isActive(path: string): boolean {
   if (path === '/') {
@@ -194,9 +312,9 @@ function goToLogin() {
   router.push({ name: 'Login', query: { redirect: route.fullPath } })
 }
 
-function goToDashboard() {
+function goToSpace() {
   closeMobileMenu()
-  router.push('/hub')
+  router.push({ name: 'Space' })
 }
 
 function goToAdmin() {
@@ -204,10 +322,16 @@ function goToAdmin() {
   router.push({ name: 'Admin' })
 }
 
-function goToProfile() {
-  closeMobileMenu()
-  router.push({ name: 'Profile' })
-}
+onMounted(() => {
+  if (userStore.isLoggedIn) {
+    fetchUnreadCount()
+    notifTimer = setInterval(fetchUnreadCount, 60000)
+  }
+})
+
+onUnmounted(() => {
+  if (notifTimer) clearInterval(notifTimer)
+})
 
 async function handleLogout() {
   try {
@@ -226,8 +350,6 @@ async function handleLogout() {
 </script>
 
 <style scoped lang="scss">
-@import '@/styles/variables.scss';
-
 .app-header {
   background: var(--el-bg-color);
   border-bottom: 1px solid var(--el-border-color);
@@ -307,6 +429,63 @@ async function handleLogout() {
   display: flex;
   align-items: center;
   gap: $spacing-sm;
+}
+
+// 搜索框
+.search-wrap {
+  display: flex;
+  align-items: center;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-light);
+  border-radius: $radius-full;
+  padding: 6px 12px;
+  width: 200px;
+  transition: width $transition-base, border-color $transition-base;
+
+  &.focused {
+    width: 280px;
+    border-color: $color-primary;
+    background: var(--el-bg-color);
+  }
+}
+
+.search-icon {
+  color: var(--el-text-color-placeholder);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.search-input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: $font-sm;
+  color: var(--el-text-color-primary);
+  width: 100%;
+
+  &::placeholder {
+    color: var(--el-text-color-placeholder);
+  }
+}
+
+// 通知
+.notif-badge {
+  line-height: 1;
+}
+
+.notif-btn {
+  color: var(--el-text-color-secondary);
+
+  &:hover {
+    color: $color-primary;
+    background: rgba(99, 102, 241, 0.08);
+  }
 }
 
 .theme-toggle {
@@ -424,6 +603,80 @@ async function handleLogout() {
 .slide-enter-from,
 .slide-leave-to {
   transform: translateX(-100%);
+}
+
+// 通知面板
+.notif-panel {
+  padding: 4px 0;
+}
+
+.notif-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px 12px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  margin-bottom: 4px;
+}
+
+.notif-panel-title {
+  font-size: $font-sm;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.notif-loading,
+.notif-empty {
+  padding: $spacing-md;
+  color: var(--el-text-color-secondary);
+  font-size: $font-sm;
+  text-align: center;
+}
+
+.notif-list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.notif-item {
+  display: flex;
+  align-items: flex-start;
+  gap: $spacing-sm;
+  padding: 10px 12px;
+  transition: background $transition-fast;
+
+  &.unread {
+    background: rgba(99, 102, 241, 0.04);
+  }
+
+  &:hover {
+    background: var(--el-fill-color-lighter);
+  }
+}
+
+.notif-avatar {
+  flex-shrink: 0;
+  font-size: 12px;
+  background: linear-gradient(135deg, $color-primary, $color-secondary);
+  color: white;
+}
+
+.notif-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.notif-text {
+  margin: 0 0 2px;
+  font-size: $font-xs;
+  color: var(--el-text-color-regular);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.notif-time {
+  font-size: 11px;
+  color: var(--el-text-color-placeholder);
 }
 
 // 修复下拉菜单间隔

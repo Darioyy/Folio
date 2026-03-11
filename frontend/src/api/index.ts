@@ -36,7 +36,7 @@ service.interceptors.response.use(
       const errorMsg = typeof data.error === 'string'
         ? data.error
         : data.error?.message || '请求失败'
-      ElMessage.error(errorMsg)
+      ElMessage.error({ message: errorMsg, duration: 5000, showClose: true })
       return Promise.reject(new Error(errorMsg))
     }
 
@@ -53,28 +53,29 @@ service.interceptors.response.use(
         ? data.error
         : data?.error?.message || ''
 
+      const msgOpts = (msg: string) => ({ message: msg, duration: 5000, showClose: true })
       switch (status) {
         case 401:
-          ElMessage.error(errorMsg || '未登录或登录已过期')
+          ElMessage.error(msgOpts(errorMsg || '未登录或登录已过期'))
           storage.clear()
           window.location.href = '/login'
           break
         case 403:
-          ElMessage.error(errorMsg || '没有权限访问')
+          ElMessage.error(msgOpts(errorMsg || '没有权限访问'))
           break
         case 404:
-          ElMessage.error(errorMsg || '请求的资源不存在')
+          ElMessage.error(msgOpts(errorMsg || '请求的资源不存在'))
           break
         case 500:
-          ElMessage.error(errorMsg || '服务器错误')
+          ElMessage.error(msgOpts(errorMsg || '服务器错误'))
           break
         default:
-          ElMessage.error(errorMsg || `请求失败 (${status})`)
+          ElMessage.error(msgOpts(errorMsg || `请求失败 (${status})`))
       }
     } else if (error.code === 'ECONNABORTED') {
-      ElMessage.error('请求超时')
+      ElMessage.error({ message: '请求超时', duration: 5000, showClose: true })
     } else {
-      ElMessage.error('网络错误，请检查网络连接')
+      ElMessage.error({ message: '网络错误，请检查网络连接', duration: 5000, showClose: true })
     }
 
     return Promise.reject(error)

@@ -38,8 +38,6 @@ const currentYear = computed(() => new Date().getFullYear())
 </script>
 
 <style scoped lang="scss">
-@import '@/styles/variables.scss';
-
 .app-footer {
   background: var(--el-bg-color);
   border-top: 1px solid var(--el-border-color);

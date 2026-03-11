@@ -27,7 +27,7 @@
         <el-table-column label="预览" width="100">
           <template #default="{ row }">
             <el-image
-              v-if="row.type === 'image'"
+              v-if="row.file_category === 'image'"
               :src="getMediaUrl(row.id)"
               style="width: 60px; height: 60px"
               fit="cover"
@@ -44,9 +44,9 @@
             {{ formatFileSize(row.file_size) }}
           </template>
         </el-table-column>
-        <el-table-column label="尺寸" width="100">
+        <el-table-column label="类型" width="120">
           <template #default="{ row }">
-            {{ row.width }}×{{ row.height }}
+            {{ row.mime_type || '-' }}
           </template>
         </el-table-column>
         <el-table-column label="时长" width="80">
@@ -201,7 +201,7 @@ function getMediaUrl(id: number) {
 }
 
 function viewMedia(media: any) {
-  if (media.type === 'image') {
+  if (media.file_category === 'image') {
     // 使用 el-image 的预览功能
   } else {
     window.open(getMediaUrl(media.id), '_blank')
@@ -256,7 +256,7 @@ async function handleUpload() {
       if (uploadForm.value.description) {
         formData.append('description', uploadForm.value.description)
       }
-      formData.append('type', uploadForm.value.type)
+      formData.append('category', uploadForm.value.type)
 
       try {
         await mediaApi.upload(formData)

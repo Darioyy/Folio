@@ -14,11 +14,15 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     """创建用户 Schema"""
     password: str = Field(..., min_length=6, max_length=100, description='密码')
+    invite_code: Optional[str] = Field(None, description='内测码')
     is_admin: Optional[int] = Field(None, description='是否管理员（通过内测码等）')
+    nickname: Optional[str] = Field(None, min_length=1, max_length=50, description='昵称')
 
 
 class UserUpdate(BaseModel):
     """更新用户 Schema"""
+    uid: Optional[str] = Field(None, min_length=8, max_length=8, description='用户UID（仅 Root 可修改）')
+    username: Optional[str] = Field(None, min_length=3, max_length=50, description='用户名（仅 Root 可修改）')
     email: Optional[str] = Field(None, description='邮箱')
     password: Optional[str] = Field(None, min_length=6, max_length=100)
     avatar: Optional[str] = Field(None, description='头像路径')

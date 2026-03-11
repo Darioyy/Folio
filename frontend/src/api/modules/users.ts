@@ -2,6 +2,35 @@ import { get, getList, post, put, del } from '../request'
 import type { User } from '@/types/models'
 import type { ApiResponse, PaginationParams } from '@/types/api'
 
+// 个人资料更新
+export interface ProfileUpdateData {
+  nickname?: string
+  signature?: string
+  email?: string
+}
+
+// 修改密码
+export interface ChangePasswordData {
+  old_password: string
+  new_password: string
+}
+
+// 隐私设置
+export interface PrivacySettings {
+  privacy_avatar?: 0 | 1
+  privacy_stats?: 0 | 1
+  privacy_content?: 0 | 1
+  privacy_follow?: 0 | 1
+}
+
+// 我的统计
+export interface MyStats {
+  posts: number
+  media: number
+  resources: number
+  total_size: number
+}
+
 // 用户公开信息
 export interface UserPublicInfo {
   id: number
@@ -31,6 +60,13 @@ export interface UserPublicStats {
 }
 
 export const usersApi = {
+  /**
+   * 检查用户名是否可用（匿名）
+   */
+  checkUsername(username: string): Promise<ApiResponse<{ available: boolean; message: string }>> {
+    return get('/users/check-username', { username })
+  },
+
   /**
    * 获取用户列表
    * 后端参数: page, page_size (不是 limit)
@@ -174,5 +210,49 @@ export const usersApi = {
     return get('/users/me/follow-status', {
       ids: userIds.join(',')
     })
+  },
+
+  // ==================== 个人设置相关 API ====================
+
+  /**
+   * 更新个人资料（昵称/签名/邮箱）
+   */
+  updateProfile(data: ProfileUpdateData): Promise<ApiResponse<User>> {
+    return put('/users/me/profile', data)
+  },
+
+  /**
+   * 修改密码
+   */
+  changePassword(data: ChangePasswordData): Promise<ApiResponse> {
+    return put('/users/me/password', data)
+  },
+
+  /**
+   * 上传头像
+   */
+  uploadAvatar(formData: FormData): Promise<ApiResponse<User>> {
+    return post('/users/me/avatar', formData)
+  },
+
+  /**
+   * 更新隐私设置
+   */
+  updatePrivacy(data: PrivacySettings): Promise<ApiResponse<User>> {
+    return put('/users/me/privacy', data)
+  },
+
+  /**
+   * 获取当前用户统计数据（posts/media/resources/total_size）
+   */
+  getMyStats(): Promise<ApiResponse<MyStats>> {
+    return get('/users/me/stats')
+  },
+
+  /**
+   * 兑换内测码
+   */
+  redeemInviteCode(inviteCode: string): Promise<ApiResponse> {
+    return post('/users/me/redeem-code', { invite_code: inviteCode })
   }
 }

@@ -1,19 +1,15 @@
 <template>
-  <router-view />
+  <router-view v-slot="{ Component, route }">
+    <transition name="page-fade" mode="out-in">
+      <component :is="Component" :key="route.name" />
+    </transition>
+  </router-view>
 </template>
 
 <script setup lang="ts">
-import { useAppStore } from '@/stores/app'
-
-const appStore = useAppStore()
-
-// 初始化暗黑模式
-appStore.initDarkMode()
 </script>
 
 <style>
-@import '@/styles/variables.scss';
-
 * {
   margin: 0;
   padding: 0;
@@ -168,5 +164,15 @@ html.dark ::-webkit-scrollbar-thumb {
   html {
     font-size: 14px;
   }
+}
+
+// 页面切换过渡：旧页完全淡出后新页才出现，消除黑条/白条闪烁
+.page-fade-enter-active,
+.page-fade-leave-active {
+  transition: opacity 0.12s ease;
+}
+.page-fade-enter-from,
+.page-fade-leave-to {
+  opacity: 0;
 }
 </style>

@@ -12,6 +12,10 @@
           :collapse="collapsed"
           router
         >
+          <el-menu-item index="/admin/dashboard">
+            <el-icon><DataAnalysis /></el-icon>
+            <span>数据概览</span>
+          </el-menu-item>
           <el-menu-item index="/admin/users">
             <el-icon><User /></el-icon>
             <span>用户管理</span>
@@ -20,17 +24,13 @@
             <el-icon><Document /></el-icon>
             <span>文章管理</span>
           </el-menu-item>
-          <el-menu-item index="/admin/categories">
-            <el-icon><Folder /></el-icon>
-            <span>分类管理</span>
+          <el-menu-item index="/admin/content">
+            <el-icon><Files /></el-icon>
+            <span>内容管理</span>
           </el-menu-item>
-          <el-menu-item index="/admin/media">
-            <el-icon><Picture /></el-icon>
-            <span>媒体管理</span>
-          </el-menu-item>
-          <el-menu-item index="/admin/resources">
-            <el-icon><Download /></el-icon>
-            <span>资源管理</span>
+          <el-menu-item v-if="userStore.isRoot" index="/admin/settings">
+            <el-icon><Setting /></el-icon>
+            <span>系统设置</span>
           </el-menu-item>
         </el-menu>
       </el-aside>
@@ -60,9 +60,10 @@
               class="theme-toggle"
             />
 
-            <el-dropdown trigger="click">
+            <el-dropdown trigger="hover" :show-timeout="60" :hide-timeout="200" :popper-options="{ modifiers: [{ name: 'offset', options: { offset: [0, 4] } }] }">
               <div class="user-dropdown-trigger">
                 <UserAvatar :src="avatarUrl" :user="userStore.currentUser" :size="36" />
+                <span class="user-name-display">{{ displayName }}</span>
               </div>
               <template #dropdown>
                 <el-dropdown-menu>
@@ -70,15 +71,11 @@
                     <el-icon><HomeFilled /></el-icon>
                     首页
                   </el-dropdown-item>
-                  <el-dropdown-item @click="goToDashboard">
-                    <el-icon><FolderOpened /></el-icon>
-                    工作台
+                  <el-dropdown-item @click="goToSpace">
+                    <el-icon><Grid /></el-icon>
+                    我的空间
                   </el-dropdown-item>
-                  <el-dropdown-item @click="goToProfile">
-                    <el-icon><User /></el-icon>
-                    个人中心
-                  </el-dropdown-item>
-                  <el-dropdown-item divided @click="handleLogout">
+                  <el-dropdown-item @click="handleLogout">
                     <el-icon><SwitchButton /></el-icon>
                     退出登录
                   </el-dropdown-item>
@@ -101,8 +98,8 @@ import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import {
-  Setting, User, Document, Picture, Download, Folder,
-  Expand, Fold, HomeFilled, UserFilled, SwitchButton, FolderOpened,
+  Setting, User, Document, Files, DataAnalysis,
+  Expand, Fold, HomeFilled, UserFilled, SwitchButton, Grid,
   Sunny, Moon
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
@@ -122,13 +119,19 @@ const activeMenu = computed(() => route.path)
 
 const currentTitle = computed(() => {
   const titles: Record<string, string> = {
+    '/admin/dashboard': '数据概览',
     '/admin/users': '用户管理',
     '/admin/posts': '文章管理',
-    '/admin/categories': '分类管理',
-    '/admin/media': '媒体管理',
-    '/admin/resources': '资源管理'
+    '/admin/content': '内容管理',
+    '/admin/settings': '系统设置',
   }
   return titles[route.path] || '后台管理'
+})
+
+// 显示名称（优先显示昵称）
+const displayName = computed(() => {
+  const user = userStore.currentUser
+  return user?.nickname || user?.username || ''
 })
 
 // 头像 URL
@@ -137,7 +140,7 @@ const avatarUrl = computed(() => {
   if (user?.avatar) {
     const baseUrl = authApi.getAvatarUrl()
     const timestamp = new Date(user.updated_at).getTime()
-    return `${baseUrl}?t=${timestamp}`
+    return `${baseUrl}?uid=${user.id}&t=${timestamp}`
   }
   return undefined
 })
@@ -154,12 +157,8 @@ function goToHome() {
   router.push({ name: 'Home' })
 }
 
-function goToDashboard() {
-  router.push('/hub')
-}
-
-function goToProfile() {
-  router.push({ name: 'Profile' })
+function goToSpace() {
+  router.push({ name: 'Space' })
 }
 
 async function handleLogout() {
@@ -178,8 +177,6 @@ async function handleLogout() {
 </script>
 
 <style scoped lang="scss">
-@import '@/styles/variables.scss';
-
 .admin-layout {
   height: 100vh;
 
@@ -263,7 +260,7 @@ async function handleLogout() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 32px;
+  padding: 0 $spacing-lg;
   height: 64px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   backdrop-filter: blur(10px);
@@ -299,13 +296,28 @@ async function handleLogout() {
 .user-dropdown-trigger {
   cursor: pointer;
   padding: 6px 12px;
-  border-radius: 12px;
-  transition: all 0.2s;
+  border-radius: $radius-full;
+  transition: all $transition-base;
   display: flex;
   align-items: center;
+  gap: $spacing-sm;
 
   &:hover {
-    background: rgba(99, 102, 241, 0.08);
+    background: var(--el-fill-color-light);
+  }
+}
+
+.user-name-display {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--el-text-color-secondary);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  @media (max-width: $breakpoint-md) {
+    display: none;
   }
 }
 

@@ -4,6 +4,13 @@ import type { ApiResponse } from '@/types/api'
 
 export const authApi = {
   /**
+   * 获取验证码图片（服务端生成，答案存 session）
+   */
+  getCaptcha(): Promise<ApiResponse<{ enabled: boolean; image: string }>> {
+    return get('/users/captcha')
+  },
+
+  /**
    * 登录
    */
   login(data: LoginRequest): Promise<ApiResponse<{ user: User }>> {

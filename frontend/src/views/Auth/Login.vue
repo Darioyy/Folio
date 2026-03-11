@@ -42,6 +42,25 @@
             />
           </el-form-item>
 
+          <el-form-item v-if="captchaEnabled" prop="captcha">
+            <div class="captcha-row">
+              <el-input
+                v-model="formData.captcha"
+                placeholder="请输入验证码"
+                clearable
+                style="flex: 1"
+                @keyup.enter="handleLogin"
+              />
+              <img
+                :src="captchaImg"
+                class="captcha-img"
+                title="点击刷新验证码"
+                @click="refreshCaptcha"
+              />
+            </div>
+            <div class="captcha-hint">不区分大小写 · 点击图片刷新</div>
+          </el-form-item>
+
           <el-form-item>
             <el-button
               type="primary"
@@ -72,11 +91,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { User, Lock, ArrowLeft } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
+import { authApi } from '@/api/modules/auth'
 
 const router = useRouter()
 const route = useRoute()
@@ -84,10 +104,13 @@ const userStore = useUserStore()
 
 const formRef = ref<FormInstance>()
 const loading = ref(false)
+const captchaImg = ref('')
+const captchaEnabled = ref(true)
 
 const formData = reactive({
   username: '',
-  password: ''
+  password: '',
+  captcha: ''
 })
 
 const rules: FormRules = {
@@ -97,8 +120,23 @@ const rules: FormRules = {
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 6, message: '密码至少 6 个字符', trigger: 'blur' }
+  ],
+  captcha: [
+    { required: () => captchaEnabled.value, message: '请输入验证码', trigger: 'blur' }
   ]
 }
+
+async function refreshCaptcha() {
+  try {
+    const res = await authApi.getCaptcha()
+    captchaEnabled.value = res.data.enabled
+    captchaImg.value = res.data.image
+  } catch {
+    // ignore
+  }
+}
+
+onMounted(refreshCaptcha)
 
 async function handleLogin() {
   if (!formRef.value) return
@@ -108,13 +146,15 @@ async function handleLogin() {
 
     loading.value = true
     try {
-      await userStore.login(formData.username, formData.password)
+      await userStore.login(formData.username, formData.password, formData.captcha)
       ElMessage.success('登录成功')
 
       const redirect = (route.query.redirect as string) || '/'
       router.push(redirect)
     } catch {
-      // 错误已在 store 中处理
+      // 错误已在 store 中处理；延迟刷新验证码，避免立即重绘影响错误提示的可读性
+      formData.captcha = ''
+      setTimeout(refreshCaptcha, 1200)
     } finally {
       loading.value = false
     }
@@ -251,6 +291,28 @@ function goBack() {
     font-weight: 600;
     border-radius: 10px;
   }
+}
+
+.captcha-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.captcha-img {
+  height: 40px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid var(--el-border-color);
+  flex-shrink: 0;
+}
+
+.captcha-hint {
+  font-size: 12px;
+  color: var(--el-text-color-placeholder);
+  margin-top: 4px;
+  line-height: 1.4;
 }
 
 .login-footer {
