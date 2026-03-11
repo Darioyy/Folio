@@ -1,6 +1,3 @@
-backend/tests/
-
-
 # Python
 __pycache__/
 *.py[cod]
@@ -14,6 +11,7 @@ ENV/
 
 # 环境变量文件（包含敏感信息）
 .env
+.env.local
 .env.production
 .env.development
 
@@ -39,6 +37,12 @@ logs/
 cookies.txt
 new_cookies.txt
 *_cookies.txt
+backend/tests/
+
+# Node.js
+node_modules/
+frontend/dist/
+dist/
 
 # 操作系统
 .DS_Store
