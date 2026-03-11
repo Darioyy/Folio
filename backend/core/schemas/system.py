@@ -22,3 +22,24 @@ class SystemInfoResponse(BaseModel):
     version: str = Field(..., description="系统版本号")
     database_stats: DatabaseStats = Field(..., description="数据库统计信息")
     database_size_mb: float = Field(0.0, ge=0, description="数据库大小(MB)")
+
+
+class FileCategoryStats(BaseModel):
+    """各分类文件数量"""
+
+    image: int = Field(0, ge=0)
+    video: int = Field(0, ge=0)
+    resource: int = Field(0, ge=0)
+    document: int = Field(0, ge=0)
+
+
+class AdminStats(BaseModel):
+    """管理员数据概览"""
+
+    users_total: int = Field(0, ge=0, description="用户总数")
+    files_total: int = Field(0, ge=0, description="文件总数")
+    files_by_category: FileCategoryStats = Field(
+        default_factory=FileCategoryStats, description="各类型文件数量"
+    )
+    storage_total: int = Field(0, ge=0, description="全站总存储量（字节）")
+    new_users_7d: int = Field(0, ge=0, description="近7天新增用户数")

@@ -1,6 +1,6 @@
 import { get, post, put, del } from '../request'
-import type { SystemInfo, Category } from '@/types/models'
-import type { ApiResponse } from '@/types/api'
+import type { SystemInfo, AdminStats, SystemConfig, InviteCode, FileItem } from '@/types/models'
+import type { ApiResponse, PaginatedResponse } from '@/types/api'
 
 export const systemApi = {
   /**
@@ -11,30 +11,58 @@ export const systemApi = {
   },
 
   /**
-   * 获取分类列表
+   * 获取管理员数据概览（admin+）
    */
-  getCategories(): Promise<ApiResponse<Category[]>> {
-    return get('/system/categories')
+  getStats(): Promise<ApiResponse<AdminStats>> {
+    return get('/system/stats')
   },
 
   /**
-   * 创建分类
+   * 管理员文件列表查询（admin+）
+   * 支持按 category / username 筛选，返回全站文件
    */
-  createCategory(data: { name: string }): Promise<ApiResponse<Category>> {
-    return post('/system/categories', data)
+  getAdminFiles(params?: {
+    page?: number
+    page_size?: number
+    category?: string
+    username?: string
+  }): Promise<ApiResponse<{ items: FileItem[]; total: number; page: number; page_size: number; pages: number }>> {
+    return get('/system/files', params)
   },
 
   /**
-   * 更新分类
+   * 获取系统配置（admin+）
    */
-  updateCategory(id: number, data: { name: string }): Promise<ApiResponse<Category>> {
-    return put(`/system/categories/${id}`, data)
+  getConfig(): Promise<ApiResponse<SystemConfig>> {
+    return get('/system/config')
   },
 
   /**
-   * 删除分类
+   * 更新系统配置（root only）
    */
-  deleteCategory(id: number): Promise<ApiResponse> {
-    return del(`/system/categories/${id}`)
-  }
+  updateConfig(data: Partial<SystemConfig>): Promise<ApiResponse<SystemConfig>> {
+    return put('/system/config', data)
+  },
+
+  /**
+   * 获取所有内测码（root only）
+   */
+  getInviteCodes(): Promise<ApiResponse<InviteCode[]>> {
+    return get('/system/invite-codes')
+  },
+
+  /**
+   * 生成新内测码（root only）
+   */
+  createInviteCode(): Promise<ApiResponse<InviteCode>> {
+    return post('/system/invite-codes', {})
+  },
+
+  /**
+   * 删除内测码（root only）
+   */
+  deleteInviteCode(code: string): Promise<ApiResponse> {
+    return del(`/system/invite-codes/${code}`)
+  },
+
 }

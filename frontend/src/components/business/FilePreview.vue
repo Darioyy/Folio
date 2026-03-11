@@ -128,9 +128,11 @@ interface Props {
   file?: {
     id: number
     title: string
-    file_type?: string
+    file_category?: string
     file_name?: string
     file_path?: string
+    file_size?: number
+    description?: string
   }
   type?: 'media' | 'resource'
 }
@@ -197,8 +199,8 @@ const fileType = computed(() => {
   }
 
   // 根据文件类型判断
-  if (props.file.file_type === 'image') return 'image'
-  if (props.file.file_type === 'video') return 'video'
+  if (props.file.file_category === 'image') return 'image'
+  if (props.file.file_category === 'video') return 'video'
 
   return 'unsupported'
 })

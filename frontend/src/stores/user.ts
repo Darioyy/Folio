@@ -15,8 +15,8 @@ export const useUserStore = defineStore('user', () => {
   const isAdminOrRoot = computed(() => isAdmin.value || isRoot.value)
 
   // 方法
-  async function login(username: string, password: string) {
-    const res = await authApi.login({ username, password })
+  async function login(username: string, password: string, captcha: string) {
+    const res = await authApi.login({ username, password, captcha })
     currentUser.value = res.data.user
     storage.setUser(res.data.user)
     return res.data

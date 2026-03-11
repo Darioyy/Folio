@@ -3,6 +3,9 @@
 遵循 RESTful 规范和三层架构
 """
 import os
+import random
+import io
+import base64
 from flask import Blueprint, request, session, g, send_file
 from werkzeug.utils import secure_filename
 from sqlalchemy.exc import IntegrityError
@@ -15,11 +18,103 @@ from core.services.follow_service import follow_service
 from core.utils.validators import login_required, admin_required, root_required
 from core.utils.response import success_response, error_response, pagination_response
 from core.utils.permissions import get_user_role
+from core.services.system_service import SystemService
 from config.default import Config
 
 
 # 创建蓝图
 bp = Blueprint('users_v1', __name__)
+
+# 验证码字符集（去掉易混淆字符 0/O/1/I/l）
+_CAPTCHA_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
+
+
+def _build_captcha_image(code: str) -> bytes:
+    """用 Pillow 生成验证码 PNG，返回字节流"""
+    from PIL import Image, ImageDraw, ImageFont
+
+    width, height = 130, 44
+    img = Image.new('RGB', (width, height), color=(245, 245, 245))
+    draw = ImageDraw.Draw(img)
+
+    # 噪点
+    for _ in range(200):
+        x = random.randint(0, width - 1)
+        y = random.randint(0, height - 1)
+        v = random.randint(150, 220)
+        draw.point((x, y), fill=(v, v, v))
+
+    # 干扰折线
+    for _ in range(4):
+        pts = [
+            (int(width * j / 4) + random.randint(-6, 6),
+             random.randint(4, height - 4))
+            for j in range(5)
+        ]
+        c = (random.randint(100, 190), random.randint(100, 190), random.randint(100, 190))
+        for k in range(len(pts) - 1):
+            draw.line([pts[k], pts[k + 1]], fill=c, width=1)
+
+    # 字符
+    char_w = width // len(code)
+    for i, ch in enumerate(code):
+        x = i * char_w + random.randint(1, 5)
+        y = random.randint(4, 12)
+        color = (random.randint(20, 110), random.randint(20, 110), random.randint(20, 110))
+        size = random.randint(18, 24)
+        try:
+            font = ImageFont.load_default(size=size)
+        except TypeError:
+            font = ImageFont.load_default()
+        draw.text((x, y), ch, fill=color, font=font)
+
+    buf = io.BytesIO()
+    img.save(buf, format='PNG')
+    return buf.getvalue()
+
+
+@bp.route('/check-username', methods=['GET'])
+def check_username():
+    """
+    检查用户名是否可用（匿名访问）
+
+    Request:
+        GET /api/v1/users/check-username?username=xxx
+
+    Response:
+        { "success": true, "data": { "available": true/false, "message": "..." } }
+    """
+    username = request.args.get('username', '').strip()
+    if not username:
+        return error_response('INVALID_PARAMS', '用户名不能为空', 400)
+    if len(username) < 3 or len(username) > 50:
+        return success_response({'available': False, 'message': '用户名长度需为 3-50 个字符'})
+
+    existing = UserService.get_by_username(username, db_session.session)
+    if existing:
+        return success_response({'available': False, 'message': '用户名已被占用'})
+    return success_response({'available': True, 'message': '用户名可用'})
+
+
+@bp.route('/captcha', methods=['GET'])
+def get_captcha():
+    """
+    获取验证码状态及图片
+    验证码关闭时返回 enabled=false，无需输入；开启时返回 base64 图片。
+
+    Response:
+        { "success": true, "data": { "enabled": true/false, "image": "data:image/png;base64,..." } }
+    """
+    captcha_enabled = SystemService.load_config().get('captcha_enabled', True)
+    if not captcha_enabled:
+        session.pop('captcha_answer', None)
+        return success_response({'enabled': False, 'image': ''})
+
+    code = ''.join(random.choices(_CAPTCHA_CHARS, k=5))
+    session['captcha_answer'] = code.lower()
+    img_bytes = _build_captcha_image(code)
+    img_b64 = base64.b64encode(img_bytes).decode()
+    return success_response({'enabled': True, 'image': f'data:image/png;base64,{img_b64}'})
 
 
 @bp.route('/login', methods=['POST'])
@@ -43,8 +138,19 @@ def login():
             }
         }
     """
+    body = request.get_json() or {}
+
+    # 后端验证码校验（配置可关闭）
+    if SystemService.load_config().get('captcha_enabled', True):
+        captcha_input = body.get('captcha', '').strip().lower()
+        captcha_expected = session.pop('captcha_answer', None)
+        if not captcha_expected or captcha_input != captcha_expected:
+            return error_response('INVALID_CAPTCHA', '验证码错误或已过期，请刷新重试', 400)
+    else:
+        session.pop('captcha_answer', None)  # 清除残留答案
+
     try:
-        data = UserLogin(**request.json)
+        data = UserLogin(**body)
     except Exception as e:
         return error_response('INVALID_PARAMS', str(e), 400)
 
@@ -88,11 +194,34 @@ def register():
             "message": "注册成功"
         }
     """
-    # 检查是否允许注册（这里可以加内测码检查）
+    body = request.get_json() or {}
+
+    # 后端验证码校验（配置可关闭）
+    config = SystemService.load_config()
+    if config.get('captcha_enabled', True):
+        captcha_input = body.get('captcha', '').strip().lower()
+        captcha_expected = session.pop('captcha_answer', None)
+        if not captcha_expected or captcha_input != captcha_expected:
+            return error_response('INVALID_CAPTCHA', '验证码错误或已过期，请刷新重试', 400)
+    else:
+        session.pop('captcha_answer', None)
+
     try:
-        data = UserCreate(**request.json)
+        data = UserCreate(**body)
     except Exception as e:
         return error_response('INVALID_PARAMS', str(e), 400)
+
+    # 检查注册开关和内测码（config 已在上方加载）
+    if not config.get('register_enabled', True):
+        return error_response('REGISTER_DISABLED', '注册已关闭', 403)
+
+    if data.invite_code:
+        # 提供了内测码：校验并标记已使用，成功后晋升为管理员
+        if not SystemService.validate_and_use_invite_code(data.invite_code, data.username):
+            return error_response('INVALID_INVITE_CODE', '内测码无效或已被使用', 400)
+        data = data.model_copy(update={'is_admin': 1})
+    elif config.get('invite_code_required', False):
+        return error_response('INVITE_CODE_REQUIRED', '注册需要内测码', 400)
 
     try:
         user = UserService.create(data, db_session.session)
@@ -186,6 +315,9 @@ def change_password():
     # 更新密码
     user.password_hash = UserService.hash_password(data.new_password)
     db_session.session.commit()
+
+    # 密码修改成功后强制清除 session，要求重新登录
+    session.clear()
 
     return success_response(message='密码修改成功')
 
@@ -604,6 +736,7 @@ def get_user_by_username(username: str):
     # 返回公开信息
     public_info = {
         'id': user.id,
+        'uid': user.uid,
         'username': user.username,
         'nickname': user.nickname,
         'signature': user.signature,
@@ -675,24 +808,26 @@ def get_user_public_content(username: str):
         posts = list(db_session.session.execute(post_stmt).scalars())
         result['posts'] = [post.to_dict() for post in posts]
 
-    # 获取公开媒体
+    # 获取公开媒体（image + video）
     if content_type in ['all', 'media']:
-        from core.models.media import Media
-        media_stmt = select(Media).where(
-            Media.uploader_id == user.id,
-            Media.visibility == 'public'
-        ).order_by(Media.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
+        from core.models.file import File
+        media_stmt = select(File).where(
+            File.user_id == user.id,
+            File.visibility == 'public',
+            File.file_category.in_(['image', 'video'])
+        ).order_by(File.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
 
         media_list = list(db_session.session.execute(media_stmt).scalars())
         result['media'] = [item.to_dict() for item in media_list]
 
     # 获取公开资源
     if content_type in ['all', 'resources']:
-        from core.models.resource import Resource
-        resource_stmt = select(Resource).where(
-            Resource.uploader_id == user.id,
-            Resource.visibility == 'public'
-        ).order_by(Resource.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
+        from core.models.file import File
+        resource_stmt = select(File).where(
+            File.user_id == user.id,
+            File.visibility == 'public',
+            File.file_category == 'resource'
+        ).order_by(File.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
 
         resources = list(db_session.session.execute(resource_stmt).scalars())
         result['resources'] = [resource.to_dict() for resource in resources]
@@ -739,22 +874,23 @@ def get_user_public_stats(username: str):
     ).scalar() or 0
     stats['posts'] = post_count
 
-    # 统计公开媒体数量
-    from core.models.media import Media
+    # 统计公开媒体数量（image + video）
+    from core.models.file import File
     media_count = db_session.session.execute(
-        select(func.count(Media.id)).where(
-            Media.uploader_id == user.id,
-            Media.visibility == 'public'
+        select(func.count(File.id)).where(
+            File.user_id == user.id,
+            File.visibility == 'public',
+            File.file_category.in_(['image', 'video'])
         )
     ).scalar() or 0
     stats['media'] = media_count
 
     # 统计公开资源数量
-    from core.models.resource import Resource
     resource_count = db_session.session.execute(
-        select(func.count(Resource.id)).where(
-            Resource.uploader_id == user.id,
-            Resource.visibility == 'public'
+        select(func.count(File.id)).where(
+            File.user_id == user.id,
+            File.visibility == 'public',
+            File.file_category == 'resource'
         )
     ).scalar() or 0
     stats['resources'] = resource_count
@@ -906,6 +1042,29 @@ def check_follow_status():
 
     follow_status = follow_service.check_follow_status(g.user_id, target_ids)
     return success_response(follow_status)
+
+
+@bp.route('/me/redeem-code', methods=['POST'])
+@login_required
+def redeem_invite_code():
+    """
+    兑换内测码（用于已注册用户补录）
+    POST /api/v1/users/me/redeem-code
+    Body: { "invite_code": "XXXXXXXX" }
+    """
+    data = request.get_json() or {}
+    code = data.get('invite_code', '').strip().upper()
+    if not code:
+        return error_response('INVALID_PARAMS', '请输入内测码', 400)
+
+    user = db_session.session.get(User, g.user_id)
+    if not user:
+        return error_response('USER_NOT_FOUND', '用户不存在', 404)
+
+    if not SystemService.validate_and_use_invite_code(code, user.username):
+        return error_response('INVALID_INVITE_CODE', '内测码无效或已被使用', 400)
+
+    return success_response(message='内测码兑换成功')
 
 
 @bp.route('/me/privacy', methods=['PUT'])

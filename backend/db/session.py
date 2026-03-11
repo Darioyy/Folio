@@ -26,7 +26,7 @@ def init_db(app):
 
     with app.app_context():
         # 导入所有模型（确保它们被注册）
-        from core.models import user, media  # noqa
+        from core.models import user, file_group, file, post, category, follow  # noqa
 
         # 创建所有表（如果不存在）
         db.create_all()

@@ -9,19 +9,9 @@ from core.schemas.user import (
     UserLogin,
     UserChangePassword
 )
-from core.schemas.media import (
-    MediaBase,
-    MediaCreate,
-    MediaUpdate,
-    MediaResponse,
-    MediaListResponse,
-    MediaUploadResponse
-)
-from core.schemas.resource import (
-    ResourceBase,
-    ResourceCreate,
-    ResourceUpdate,
-    ResourceResponse
+from core.schemas.file import (
+    FileCreate,
+    FileUpdate
 )
 
 __all__ = [
@@ -31,14 +21,6 @@ __all__ = [
     'UserResponse',
     'UserLogin',
     'UserChangePassword',
-    'MediaBase',
-    'MediaCreate',
-    'MediaUpdate',
-    'MediaResponse',
-    'MediaListResponse',
-    'MediaUploadResponse',
-    'ResourceBase',
-    'ResourceCreate',
-    'ResourceUpdate',
-    'ResourceResponse'
+    'FileCreate',
+    'FileUpdate'
 ]

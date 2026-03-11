@@ -1,22 +1,30 @@
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
 import relativeTime from 'dayjs/plugin/relativeTime'
+import utc from 'dayjs/plugin/utc'
+import timezone from 'dayjs/plugin/timezone'
 
 dayjs.locale('zh-cn')
 dayjs.extend(relativeTime)
+dayjs.extend(utc)
+dayjs.extend(timezone)
+
+// 北京时间 UTC+8
+const TZ = 'Asia/Shanghai'
 
 /**
- * 格式化日期
+ * 格式化日期（北京时间）
+ * 后端返回无时区的 datetime 字符串（服务器存储的是北京时间），强制以 UTC+8 解析
  */
-export function formatDate(date: string | Date, format = 'YYYY-MM-DD HH:mm'): string {
-  return dayjs(date).format(format)
+export function formatDate(date: string | Date, format = 'YYYY-MM-DD HH:mm:ss'): string {
+  return dayjs.tz(date, TZ).format(format)
 }
 
 /**
- * 相对时间
+ * 相对时间（北京时间基准）
  */
 export function fromNow(date: string | Date): string {
-  return dayjs(date).fromNow()
+  return dayjs.tz(date, TZ).fromNow()
 }
 
 /**

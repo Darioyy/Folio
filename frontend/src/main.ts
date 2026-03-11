@@ -8,6 +8,7 @@ import 'element-plus/theme-chalk/dark/css-vars.css'
 import App from './App.vue'
 import router from './router'
 import '@/assets/styles/index.scss'
+import { useAppStore } from '@/stores/app'
 
 const app = createApp(App)
 
@@ -16,8 +17,12 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
   app.component(key, component)
 }
 
-app.use(createPinia())
+const pinia = createPinia()
+app.use(pinia)
 app.use(router)
 app.use(ElementPlus)
+
+// 初始化暗黑模式状态（与 index.html 内联脚本已设的 class 同步）
+useAppStore().initDarkMode()
 
 app.mount('#app')

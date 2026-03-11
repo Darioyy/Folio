@@ -23,14 +23,20 @@ export const useAppStore = defineStore('app', () => {
     })
   }
 
-  // 应用暗黑模式
+  // 应用暗黑模式（带平滑过渡）
   function applyDarkMode(isDark: boolean) {
     const html = document.documentElement
+    // 添加过渡 class，触发平滑切换
+    html.classList.add('color-scheme-transition')
     if (isDark) {
       html.classList.add('dark')
     } else {
       html.classList.remove('dark')
     }
+    // 过渡完成后移除 class，避免干扰其他动画
+    window.setTimeout(() => {
+      html.classList.remove('color-scheme-transition')
+    }, 300)
   }
 
   // 切换暗黑模式

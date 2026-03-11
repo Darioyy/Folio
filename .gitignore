@@ -35,6 +35,11 @@ uploads/
 *.log
 logs/
 
+# 调试遗留文件
+cookies.txt
+new_cookies.txt
+*_cookies.txt
+
 # 操作系统
 .DS_Store
 Thumbs.db

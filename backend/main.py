@@ -16,7 +16,8 @@ from config.default import Config, DevelopmentConfig, ProductionConfig
 from db.session import init_db, db as db_session
 
 # 导入 API v1 蓝图
-from api.v1 import users_bp, media_bp, resources_bp, posts_bp, system_bp, hub_bp
+from api.v1 import (users_bp, media_bp, resources_bp, posts_bp, system_bp, hub_bp,
+                    files_bp, groups_bp, interactions_bp, comments_bp, notifications_bp, search_bp)
 
 
 # 配置日志
@@ -123,6 +124,12 @@ def create_app(config_name='development'):
     app.register_blueprint(posts_bp, url_prefix=f"{api_prefix}/posts")
     app.register_blueprint(system_bp, url_prefix=f"{api_prefix}/system")
     app.register_blueprint(hub_bp, url_prefix=f"{api_prefix}/hub")
+    app.register_blueprint(files_bp, url_prefix=f"{api_prefix}/files")
+    app.register_blueprint(groups_bp, url_prefix=f"{api_prefix}/groups")
+    app.register_blueprint(interactions_bp, url_prefix=f"{api_prefix}/files")
+    app.register_blueprint(comments_bp, url_prefix=f"{api_prefix}")
+    app.register_blueprint(notifications_bp, url_prefix=f"{api_prefix}/notifications")
+    app.register_blueprint(search_bp, url_prefix=f"{api_prefix}/search")
 
     # 健康检查端点
     @app.route('/health')
@@ -168,8 +175,8 @@ def create_app(config_name='development'):
     @app.route('/uploads/<path:filename>')
     def serve_upload(filename):
         """提供上传文件的访问"""
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        uploads_dir = os.path.join(project_root, 'uploads')
+        # uploads/ 与 Config.UPLOAD_FOLDER 保持一致：backend/uploads/
+        uploads_dir = os.path.abspath(Config.UPLOAD_FOLDER)
 
         # 安全检查
         if ".." in filename or filename.startswith("/") or filename.startswith("\\"):
@@ -183,7 +190,7 @@ def create_app(config_name='development'):
             return jsonify({'error': '非法的文件路径'}), 403
 
         if not os.path.exists(full_path):
-            return jsonify({'error': '文件不存在'}), 404
+            return '', 404
 
         return send_from_directory(uploads_dir, filename)
 
@@ -208,7 +215,7 @@ def create_app(config_name='development'):
 
 if __name__ == '__main__':
     print("\n" + "=" * 50)
-    print("启动 Flask 开发服务器 (三层架构版)")
+    print("Hi VaultShare")
     print("=" * 50)
 
     app = create_app('development')

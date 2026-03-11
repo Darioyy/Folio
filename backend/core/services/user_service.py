@@ -3,20 +3,33 @@
 """
 import bcrypt
 import os
+import random
+import string
 from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func
 
 from core.models.user import User
 from core.models.post import Post
-from core.models.media import Media
-from core.models.resource import Resource
+from core.models.file import File
 from core.schemas.user import UserCreate, UserUpdate, ProfileUpdate
-from core.utils.permissions import can_modify_user, can_delete_user
+from core.utils.permissions import can_modify_user, can_delete_user, get_user_role
+from core.utils.constants import Role
+from core.services.system_service import SystemService
 
 
 class UserService:
     """用户服务类"""
+
+    @staticmethod
+    def _generate_uid(db_session: Session) -> str:
+        """生成唯一的 8 位数字 uid"""
+        for _ in range(20):
+            uid = ''.join(random.choices(string.digits, k=8))
+            existing = db_session.execute(select(User).where(User.uid == uid)).scalar_one_or_none()
+            if not existing:
+                return uid
+        raise ValueError('生成 uid 失败，请重试')
 
     @staticmethod
     def hash_password(password: str) -> str:
@@ -92,16 +105,27 @@ class UserService:
         if existing:
             raise ValueError('用户名已存在')
 
-        # 判断是否为管理员（通过内测码或其他方式）
-        # 普通用户默认 200MB，管理员 500MB
+        # 根据系统配置和角色确定存储配额
+        config = SystemService.load_config()
+        is_root = getattr(user_data, 'is_root', 0) or 0
         is_admin = getattr(user_data, 'is_admin', 0) or 0
-        storage_quota = 524288000 if is_admin else 209715200  # 500MB : 200MB
+        if is_root:
+            storage_quota = config.get('storage_quota_root', 10737418240)
+        elif is_admin:
+            storage_quota = config.get('storage_quota_admin', 5368709120)
+        else:
+            storage_quota = config.get('storage_quota_user', 1073741824)
+
+        # 生成唯一 uid
+        uid = UserService._generate_uid(db_session)
 
         # 创建用户
         user = User(
+            uid=uid,
             username=user_data.username,
             password_hash=UserService.hash_password(user_data.password),
             email=user_data.email,
+            nickname=getattr(user_data, 'nickname', None),
             storage_quota=storage_quota,
             is_admin=is_admin,
             is_root=0
@@ -135,6 +159,32 @@ class UserService:
         if not can_modify_user(operator_id, user_id, db_session):
             raise PermissionError('无权修改此用户')
 
+        # 修改 uid（仅 Root 可操作）
+        if getattr(user_data, 'uid', None) is not None and user_data.uid.strip():
+            operator_role = get_user_role(operator_id, db_session)
+            if operator_role < Role.ROOT:
+                raise PermissionError('只有超级管理员可以修改用户 uid')
+            new_uid = user_data.uid.strip()
+            if new_uid != user.uid:
+                if len(new_uid) != 8 or not new_uid.isdigit():
+                    raise ValueError('uid 必须为 8 位数字字符串')
+                existing = db_session.execute(select(User).where(User.uid == new_uid)).scalar_one_or_none()
+                if existing:
+                    raise ValueError('该 uid 已被占用')
+                user.uid = new_uid
+
+        # 修改用户名（仅 Root 可操作）
+        if user_data.username is not None and user_data.username.strip():
+            operator_role = get_user_role(operator_id, db_session)
+            if operator_role < Role.ROOT:
+                raise PermissionError('只有超级管理员可以修改用户名')
+            new_username = user_data.username.strip()
+            if new_username != user.username:
+                existing = UserService.get_by_username(new_username, db_session)
+                if existing:
+                    raise ValueError('用户名已被占用')
+                user.username = new_username
+
         # 更新字段
         if user_data.email is not None and user_data.email != '':
             user.email = user_data.email
@@ -142,14 +192,25 @@ class UserService:
         if user_data.password is not None:
             user.password_hash = UserService.hash_password(user_data.password)
 
-        # 更新管理员权限（同步更新存储配额）
+        # 更新管理员/超级管理员权限
+        role_changed = False
         if user_data.is_admin is not None:
             user.is_admin = user_data.is_admin
-            # 管理员 500MB，普通用户 200MB
-            user.storage_quota = 524288000 if user_data.is_admin else 209715200
+            role_changed = True
 
         if user_data.is_root is not None:
             user.is_root = user_data.is_root
+            role_changed = True
+
+        # 角色变更时同步更新存储配额
+        if role_changed:
+            config = SystemService.load_config()
+            if user.is_root:
+                user.storage_quota = config.get('storage_quota_root', 10737418240)
+            elif user.is_admin:
+                user.storage_quota = config.get('storage_quota_admin', 5368709120)
+            else:
+                user.storage_quota = config.get('storage_quota_user', 1073741824)
 
         db_session.commit()
         db_session.refresh(user)
@@ -199,8 +260,7 @@ class UserService:
         offset = (page - 1) * page_size
 
         # 查询总数
-        total_stmt = select(User.id)
-        total = len(list(db_session.execute(total_stmt).scalars()))
+        total = db_session.execute(select(func.count(User.id))).scalar() or 0
 
         # 查询用户（ROOT 置顶）
         stmt = select(User).order_by(User.is_root.desc(), User.id.asc()).offset(offset).limit(page_size)
@@ -319,26 +379,26 @@ class UserService:
             select(func.count(Post.id)).where(Post.author_id == user_id)
         ).scalar() or 0
 
-        # 统计媒体数量（使用 uploader_id）
+        # 统计媒体数量（image + video）
         media_count = db_session.execute(
-            select(func.count(Media.id)).where(Media.uploader_id == user_id)
+            select(func.count(File.id)).where(
+                File.user_id == user_id,
+                File.file_category.in_(['image', 'video'])
+            )
         ).scalar() or 0
 
-        # 统计资源数量（使用 uploader_id）
+        # 统计资源数量
         resource_count = db_session.execute(
-            select(func.count(Resource.id)).where(Resource.uploader_id == user_id)
+            select(func.count(File.id)).where(
+                File.user_id == user_id,
+                File.file_category == 'resource'
+            )
         ).scalar() or 0
 
         # 计算总存储大小
-        media_size = db_session.execute(
-            select(func.sum(Media.file_size)).where(Media.uploader_id == user_id)
+        total_size = db_session.execute(
+            select(func.sum(File.file_size)).where(File.user_id == user_id)
         ).scalar() or 0
-
-        resource_size = db_session.execute(
-            select(func.sum(Resource.file_size)).where(Resource.uploader_id == user_id)
-        ).scalar() or 0
-
-        total_size = (media_size or 0) + (resource_size or 0)
 
         return {
             'posts': post_count,
@@ -361,18 +421,18 @@ class UserService:
         """
         categories = []
 
-        # 统计图片（Media）
+        # 统计图片（files 表 file_category=image）
         image_count = db_session.execute(
-            select(func.count(Media.id)).where(
-                Media.uploader_id == user_id,
-                Media.file_type == 'image'
+            select(func.count(File.id)).where(
+                File.user_id == user_id,
+                File.file_category == 'image'
             )
         ).scalar() or 0
 
         image_size = db_session.execute(
-            select(func.sum(Media.file_size)).where(
-                Media.uploader_id == user_id,
-                Media.file_type == 'image'
+            select(func.sum(File.file_size)).where(
+                File.user_id == user_id,
+                File.file_category == 'image'
             )
         ).scalar() or 0
 
@@ -384,18 +444,18 @@ class UserService:
                 'size': image_size
             })
 
-        # 统计视频（Media）
+        # 统计视频（files 表 file_category=video）
         video_count = db_session.execute(
-            select(func.count(Media.id)).where(
-                Media.uploader_id == user_id,
-                Media.file_type == 'video'
+            select(func.count(File.id)).where(
+                File.user_id == user_id,
+                File.file_category == 'video'
             )
         ).scalar() or 0
 
         video_size = db_session.execute(
-            select(func.sum(Media.file_size)).where(
-                Media.uploader_id == user_id,
-                Media.file_type == 'video'
+            select(func.sum(File.file_size)).where(
+                File.user_id == user_id,
+                File.file_category == 'video'
             )
         ).scalar() or 0
 
@@ -432,13 +492,19 @@ class UserService:
                 'size': post_size
             })
 
-        # 统计资源（Resource）
+        # 统计资源（files 表 file_category=resource）
         resource_count = db_session.execute(
-            select(func.count(Resource.id)).where(Resource.uploader_id == user_id)
+            select(func.count(File.id)).where(
+                File.user_id == user_id,
+                File.file_category == 'resource'
+            )
         ).scalar() or 0
 
         resource_size = db_session.execute(
-            select(func.sum(Resource.file_size)).where(Resource.uploader_id == user_id)
+            select(func.sum(File.file_size)).where(
+                File.user_id == user_id,
+                File.file_category == 'resource'
+            )
         ).scalar() or 0
 
         if resource_count > 0:

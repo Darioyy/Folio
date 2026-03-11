@@ -69,6 +69,17 @@ class FollowService:
             if following:
                 following.followers_count += 1
 
+        # 通知被关注者
+        try:
+            from core.services.notification_service import notification_service
+            notification_service.create(
+                user_id=following_id,
+                type_='follow',
+                actor_id=follower_id
+            )
+        except Exception:
+            pass
+
         return True, "关注成功"
 
     @staticmethod
