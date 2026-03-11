@@ -1,0 +1,47 @@
+{
+  "register_enabled": true,
+  "invite_code_required": false,
+  "storage_quota_root": 5368709120,
+  "storage_quota_admin": 1073741824,
+  "storage_quota_user": 209715200,
+  "max_file_size": 37748736,
+  "allowed_extensions": "png,jpg,jpeg,gif,webp,mp4,webm,avi,pdf,doc,docx,txt,md,zip,rar,pptx",
+  "invite_codes": [
+    {
+      "code": "7IFZAWZ0",
+      "used": false,
+      "used_by": null,
+      "used_at": null,
+      "created_at": "2026-03-11T05:12:39.531633"
+    },
+    {
+      "code": "0BECEUUY",
+      "used": false,
+      "used_by": null,
+      "used_at": null,
+      "created_at": "2026-03-11T05:12:40.247787"
+    },
+    {
+      "code": "MKV61SAI",
+      "used": false,
+      "used_by": null,
+      "used_at": null,
+      "created_at": "2026-03-11T05:12:40.680516"
+    },
+    {
+      "code": "IRPUHMYD",
+      "used": false,
+      "used_by": null,
+      "used_at": null,
+      "created_at": "2026-03-11T05:12:43.363083"
+    },
+    {
+      "code": "4DBKOLJ9",
+      "used": false,
+      "used_by": null,
+      "used_at": null,
+      "created_at": "2026-03-11T05:12:48.619165"
+    }
+  ],
+  "captcha_enabled": false
+}
