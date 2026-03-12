@@ -69,10 +69,10 @@ class FollowService:
             if following:
                 following.followers_count += 1
 
-        # 通知被关注者
+        # 通知被关注者（幂等，避免关注-取消-再关注产生多条通知）
         try:
             from core.services.notification_service import notification_service
-            notification_service.create(
+            notification_service.upsert(
                 user_id=following_id,
                 type_='follow',
                 actor_id=follower_id
@@ -110,6 +110,17 @@ class FollowService:
                 follower.following_count -= 1
             if following and following.followers_count > 0:
                 following.followers_count -= 1
+
+        # 取消关注时，删除对应的关注通知（避免最终未关注却留有通知）
+        try:
+            from core.services.notification_service import notification_service
+            notification_service.delete_by_actor(
+                user_id=following_id,
+                type_='follow',
+                actor_id=follower_id
+            )
+        except Exception:
+            pass
 
         return True, "取消关注成功"
 
@@ -162,6 +173,22 @@ class FollowService:
             following.append(user_dict)
 
         return following, total
+
+    @staticmethod
+    def get_mutual_followings(user_id: int, target_ids: List[int]) -> set:
+        """返回 target_ids 中哪些用户也关注了 user_id（批量互相关注判断）"""
+        if not target_ids:
+            return set()
+        results = db.session.execute(
+            select(Follow.follower_id)
+            .where(
+                and_(
+                    Follow.follower_id.in_(target_ids),
+                    Follow.following_id == user_id,
+                )
+            )
+        ).scalars().all()
+        return set(results)
 
     @staticmethod
     def check_follow_status(user_id: int, target_ids: List[int]) -> dict[int, bool]:

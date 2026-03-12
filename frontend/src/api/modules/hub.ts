@@ -37,15 +37,15 @@ export const hubApi = {
   },
 
   /**
-   * 获取用户私有资源文件列表
-   * 改调 /files?category=resource
+   * 获取用户私有文档文件列表
+   * 改调 /files?category=document
    */
   getUserResources(params?: {
     page?: number
     page_size?: number
     visibility?: 'private' | 'public'
   }): Promise<PaginatedResponse<FileItem>> {
-    return getPaginated('/files', { ...params, category: 'resource' })
+    return getPaginated('/files', { ...params, category: 'document' })
   },
 
   /**
@@ -81,13 +81,13 @@ export const hubApi = {
   },
 
   /**
-   * 获取公共资源文件列表（供公共大厅，无需登录）
-   * 改调 /files/public?category=resource
+   * 获取公共文档文件列表（供公共大厅，无需登录）
+   * 改调 /files/public?category=document
    */
   getPublicResources(params?: {
     page?: number
     page_size?: number
   }): Promise<PaginatedResponse<FileItem>> {
-    return getPaginated('/files/public', { ...params, category: 'resource' })
+    return getPaginated('/files/public', { ...params, category: 'document' })
   }
 }

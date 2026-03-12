@@ -220,7 +220,7 @@ class UserService:
     @staticmethod
     def delete(user_id: int, operator_id: int, db_session: Session) -> bool:
         """
-        删除用户
+        删除用户（级联清理所有关联数据）
 
         Args:
             user_id: 用户ID
@@ -230,6 +230,14 @@ class UserService:
         Returns:
             是否删除成功
         """
+        from sqlalchemy import delete as sa_delete, select as sa_select, or_, text
+        from core.models.notification import Notification as NotifModel
+        from core.models.follow import Follow
+        from core.models.interaction import Like, Collection
+        from core.models.comment import Comment, CommentLike
+        from core.models.post import Post as PostModel
+        from core.models.post_attachment import PostAttachment
+
         user = UserService.get_by_id(user_id, db_session)
         if not user:
             raise ValueError('用户不存在')
@@ -238,7 +246,49 @@ class UserService:
         if not can_delete_user(operator_id, user_id, db_session):
             raise PermissionError('无权删除此用户')
 
-        db_session.delete(user)
+        # 1. 删除关注关系（Follow 无 FK 约束，必须手动清理）
+        db_session.execute(sa_delete(Follow).where(
+            or_(Follow.follower_id == user_id, Follow.following_id == user_id)
+        ))
+
+        # 2. 获取该用户所有博文 ID，级联清理博文相关数据
+        post_ids = list(db_session.execute(
+            sa_select(PostModel.id).where(PostModel.author_id == user_id)
+        ).scalars())
+
+        if post_ids:
+            comment_ids = list(db_session.execute(
+                sa_select(Comment.id).where(Comment.post_id.in_(post_ids))
+            ).scalars())
+            if comment_ids:
+                db_session.execute(sa_delete(CommentLike).where(CommentLike.comment_id.in_(comment_ids)))
+            db_session.execute(sa_delete(Comment).where(Comment.post_id.in_(post_ids)))
+            db_session.execute(sa_delete(Like).where(Like.post_id.in_(post_ids)))
+            db_session.execute(sa_delete(Collection).where(Collection.post_id.in_(post_ids)))
+            db_session.execute(sa_delete(PostAttachment).where(PostAttachment.post_id.in_(post_ids)))
+
+        # 3. 清理该用户在他人博文下的评论点赞、评论、点赞、收藏
+        user_comment_ids = list(db_session.execute(
+            sa_select(Comment.id).where(Comment.user_id == user_id)
+        ).scalars())
+        if user_comment_ids:
+            db_session.execute(sa_delete(CommentLike).where(CommentLike.comment_id.in_(user_comment_ids)))
+        db_session.execute(sa_delete(CommentLike).where(CommentLike.user_id == user_id))
+        db_session.execute(sa_delete(Comment).where(Comment.user_id == user_id))
+        db_session.execute(sa_delete(Like).where(Like.user_id == user_id))
+        db_session.execute(sa_delete(Collection).where(Collection.user_id == user_id))
+
+        # 4. 删除通知（actor_id/user_id 的通知）
+        db_session.execute(sa_delete(NotifModel).where(
+            or_(NotifModel.user_id == user_id, NotifModel.actor_id == user_id)
+        ))
+
+        # 5. 删除博文
+        db_session.execute(sa_delete(PostModel).where(PostModel.author_id == user_id))
+
+        # 6. flush 后通过 raw SQL 删除用户，绕开 ORM 关系拦截（files 有 ondelete=CASCADE 由 DB 处理）
+        db_session.flush()
+        db_session.execute(text('DELETE FROM users WHERE id = :uid'), {'uid': user_id})
         db_session.commit()
 
         return True

@@ -57,6 +57,8 @@ export interface UserPublicStats {
   posts: number
   media: number
   resources: number
+  likes_received: number | null
+  collects_received: number | null
 }
 
 export const usersApi = {
@@ -254,5 +256,15 @@ export const usersApi = {
    */
   redeemInviteCode(inviteCode: string): Promise<ApiResponse> {
     return post('/users/me/redeem-code', { invite_code: inviteCode })
+  },
+
+  /**
+   * 获取某用户的已发布博文列表（公开）
+   */
+  getUserPosts(
+    username: string,
+    params?: { page?: number; page_size?: number }
+  ): Promise<ApiResponse<{ items: import('@/types/models').Post[]; total: number; page: number; page_size: number; pages: number }>> {
+    return get(`/users/username/${username}/posts`, params)
   }
 }

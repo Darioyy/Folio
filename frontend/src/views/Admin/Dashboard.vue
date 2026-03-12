@@ -71,7 +71,7 @@ const categoryItems = computed(() => {
   if (!stats.value) return []
   const cat = stats.value.files_by_category
   return [
-    { label: '图片', count: cat.image, color: '#6366f1', tagType: '' },
+    { label: '图片', count: cat.image, color: '#6366f1', tagType: 'primary' },
     { label: '视频', count: cat.video, color: '#8b5cf6', tagType: 'warning' },
     { label: '资源', count: cat.resource, color: '#10b981', tagType: 'success' },
     { label: '文档', count: cat.document, color: '#f59e0b', tagType: 'info' },

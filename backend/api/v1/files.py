@@ -44,19 +44,16 @@ def list_files():
     - admin: 可查所有用户文件；可额外传 user_id 筛选
     - 普通用户: 只查自己的文件
 
-    Query: page, page_size, category(image/video/document/resource), visibility(private/public)
+    Query: page, page_size, category(image/video/document/resource)
     """
     page = request.args.get('page', 1, type=int)
     page_size = min(request.args.get('page_size', 20, type=int), 100)
     category = request.args.get('category')
-    visibility = request.args.get('visibility')
     # group_id: None=不过滤, -1=未分组(IS NULL), 正整数=指定分组
     group_id_raw = request.args.get('group_id', type=int)
 
     if category and category not in ('image', 'video', 'document', 'resource'):
         return error_response('INVALID_PARAMS', 'category 无效', 400)
-    if visibility and visibility not in ('private', 'public'):
-        return error_response('INVALID_PARAMS', 'visibility 必须是 private 或 public', 400)
 
     is_admin_user = require_admin(g.user_id, db_session.session)
     if is_admin_user:
@@ -70,7 +67,6 @@ def list_files():
         page_size=page_size,
         user_id=filter_user_id,
         file_category=category,
-        visibility=visibility,
         group_id=group_id_raw,
         session=db_session.session,
         include_user=True,
@@ -82,46 +78,17 @@ def list_files():
     return pagination_response(items, result['page'], result['page_size'], result['total'])
 
 
-@bp.route('/public', methods=['GET'])
-def list_public_files():
-    """
-    公共文件列表（无需登录）
-
-    Query: page, page_size, category(image/video/document/resource)
-    """
-    page = request.args.get('page', 1, type=int)
-    page_size = min(request.args.get('page_size', 20, type=int), 100)
-    category = request.args.get('category')
-
-    if category and category not in ('image', 'video', 'document', 'resource'):
-        return error_response('INVALID_PARAMS', 'category 无效', 400)
-
-    result = FileService.list_files(
-        page=page,
-        page_size=page_size,
-        file_category=category,
-        visibility='public',
-        session=db_session.session,
-        include_user=True,
-    )
-
-    items = [f.to_dict(include_user=True) for f in result['items']]
-    return pagination_response(items, result['page'], result['page_size'], result['total'])
-
-
 @bp.route('/<int:file_id>', methods=['GET'])
 def get_file(file_id: int):
-    """文件详情（私有文件仅文件所有者可访问）"""
+    """文件详情（仅文件所有者或 Root 可访问）"""
     from flask import session as flask_session
     file = FileService.get_by_id(file_id, db_session.session)
     if not file:
         return error_response('FILE_NOT_FOUND', '文件不存在', 404)
 
-    if file.visibility == 'private':
-        current_user_id = flask_session.get('user_id')
-        if current_user_id != file.user_id:
-            if not current_user_id or not require_root(current_user_id, db_session.session):
-                return error_response('FORBIDDEN', '无权访问此文件', 403)
+    current_user_id = flask_session.get('user_id')
+    if not current_user_id or (current_user_id != file.user_id and not require_root(current_user_id, db_session.session)):
+        return error_response('FORBIDDEN', '无权访问此文件', 403)
 
     return success_response(file.to_dict(include_user=True))
 
@@ -134,10 +101,8 @@ def upload_file():
 
     Form:
         file: 文件（必需）
-        title: 标题（必需）
         description: 描述（可选）
         category: image / video / document / resource（必需）
-        visibility: private / public（可选，默认 private）
         thumbnail: 视频封面（可选，仅 video 类型有效）
     """
     if 'file' not in request.files:
@@ -147,19 +112,13 @@ def upload_file():
     if not file.filename:
         return error_response('NO_FILE', '未选择文件', 400)
 
-    title = request.form.get('title', '').strip()
     description = request.form.get('description', '').strip() or None
     category = request.form.get('category', '')
-    visibility = request.form.get('visibility', 'private')
     group_id_raw = request.form.get('group_id')
     group_id = int(group_id_raw) if group_id_raw and group_id_raw.isdigit() else None
 
-    if not title:
-        return error_response('INVALID_PARAMS', 'title 不能为空', 400)
     if category not in ('image', 'video', 'document', 'resource'):
         return error_response('INVALID_PARAMS', 'category 必须是 image/video/document/resource', 400)
-    if visibility not in ('private', 'public'):
-        return error_response('INVALID_PARAMS', 'visibility 必须是 private 或 public', 400)
 
     # 验证扩展名
     allowed = Config.ALLOWED_EXTENSIONS.get(_EXT_KEY[category], set())
@@ -181,6 +140,7 @@ def upload_file():
     unique_filename = FileService.generate_unique_filename(file.filename)
     full_path = os.path.join(upload_dir, unique_filename)
     file.save(full_path)
+    auto_title = secure_filename(file.filename)
 
     file_size = os.path.getsize(full_path)
     mime_type = file.mimetype or 'application/octet-stream'
@@ -211,10 +171,10 @@ def upload_file():
     try:
         created = FileService.create(
             file_data=FileCreate(
-                title=title,
+                title=auto_title,
                 description=description,
                 file_category=category,
-                visibility=visibility,
+                visibility='private',
             ),
             file_path=relative_path,
             file_name=secure_filename(file.filename),
@@ -294,14 +254,3 @@ def sort_files():
     return success_response(message='排序已更新')
 
 
-@bp.route('/<int:file_id>/visibility', methods=['PATCH'])
-@login_required
-def toggle_visibility(file_id: int):
-    """切换文件可见性（private ↔ public）"""
-    try:
-        new_visibility = FileService.toggle_visibility(file_id, g.user_id, db_session.session)
-        return success_response({'visibility': new_visibility}, '切换成功')
-    except ValueError as e:
-        return error_response('NOT_FOUND', str(e), 404)
-    except PermissionError as e:
-        return error_response('FORBIDDEN', str(e), 403)

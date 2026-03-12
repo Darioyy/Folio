@@ -94,8 +94,7 @@ const loading = ref(false)
 const categories = ref([
   { type: 'image', name: '图片', size: 0, count: 0, icon: markRaw(Picture) },
   { type: 'video', name: '视频', size: 0, count: 0, icon: markRaw(VideoPlay) },
-  { type: 'document', name: '文章', size: 0, count: 0, icon: markRaw(Document) },
-  { type: 'resource', name: '资源', size: 0, count: 0, icon: markRaw(Folder) }
+  { type: 'document', name: '文档', size: 0, count: 0, icon: markRaw(Document) },
 ])
 
 const visible = computed({

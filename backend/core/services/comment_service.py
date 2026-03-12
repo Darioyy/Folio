@@ -1,32 +1,29 @@
 """
-评论服务
+评论服务（v3.0：绑定 post_id）
 """
 from typing import Dict, List
 from sqlalchemy import select, func, and_
 from db.session import db
 from core.models.comment import Comment
-from core.models.file import File
-from core.models.user import User
+from core.models.post import Post
 
 
 class CommentService:
 
     @staticmethod
-    def get_comments(file_id: int, page: int = 1, page_size: int = 20) -> Dict:
-        """
-        获取文件评论列表（根评论 + 每条评论的 replies）
-        """
+    def get_comments(post_id: int, page: int = 1, page_size: int = 20, viewer_id: int = None) -> Dict:
+        """获取博文评论列表（根评论 + 每条评论的 replies）"""
         offset = (page - 1) * page_size
 
         total = db.session.execute(
             select(func.count(Comment.id)).where(
-                and_(Comment.file_id == file_id, Comment.parent_id.is_(None))
+                and_(Comment.post_id == post_id, Comment.parent_id.is_(None))
             )
         ).scalar() or 0
 
         root_comments = db.session.execute(
             select(Comment)
-            .where(and_(Comment.file_id == file_id, Comment.parent_id.is_(None)))
+            .where(and_(Comment.post_id == post_id, Comment.parent_id.is_(None)))
             .order_by(Comment.created_at.desc())
             .offset(offset).limit(page_size)
         ).scalars().all()
@@ -34,6 +31,7 @@ class CommentService:
         # 批量拉取 replies
         root_ids = [c.id for c in root_comments]
         replies_map: Dict[int, List[Comment]] = {rid: [] for rid in root_ids}
+        all_reply_ids = []
         if root_ids:
             all_replies = db.session.execute(
                 select(Comment)
@@ -43,11 +41,25 @@ class CommentService:
             for r in all_replies:
                 if r.parent_id in replies_map:
                     replies_map[r.parent_id].append(r)
+                all_reply_ids.append(r.id)
+
+        # 批量查询点赞状态
+        liked_set: set = set()
+        if viewer_id:
+            from core.models.comment import CommentLike
+            all_ids = root_ids + all_reply_ids
+            if all_ids:
+                liked_rows = db.session.execute(
+                    select(CommentLike.comment_id).where(
+                        and_(CommentLike.user_id == viewer_id, CommentLike.comment_id.in_(all_ids))
+                    )
+                ).scalars().all()
+                liked_set = set(liked_rows)
 
         items = []
         for c in root_comments:
-            d = c.to_dict(include_user=True)
-            d['replies'] = [r.to_dict(include_user=True) for r in replies_map.get(c.id, [])]
+            d = c.to_dict(include_user=True, liked=(c.id in liked_set))
+            d['replies'] = [r.to_dict(include_user=True, liked=(r.id in liked_set)) for r in replies_map.get(c.id, [])]
             items.append(d)
 
         return {
@@ -59,31 +71,61 @@ class CommentService:
         }
 
     @staticmethod
-    def create_comment(file_id: int, user_id: int, content: str, parent_id: int = None) -> Comment:
+    def create_comment(post_id: int, user_id: int, content: str, parent_id: int = None) -> Comment:
         """创建评论"""
-        file = db.session.get(File, file_id)
-        if not file:
-            raise ValueError('文件不存在')
+        post = db.session.get(Post, post_id)
+        if not post:
+            raise ValueError('博文不存在')
+        if post.status != 'published':
+            raise ValueError('只能评论已发布的博文')
 
         # 校验 parent_id 只能指向根评论（两级楼）
         if parent_id is not None:
             parent = db.session.get(Comment, parent_id)
             if not parent:
                 raise ValueError('父评论不存在')
-            if parent.file_id != file_id:
-                raise ValueError('父评论不属于该文件')
+            if parent.post_id != post_id:
+                raise ValueError('父评论不属于该博文')
             if parent.parent_id is not None:
                 raise ValueError('评论最多支持两级楼')
 
         comment = Comment(
-            file_id=file_id,
+            post_id=post_id,
             user_id=user_id,
             parent_id=parent_id,
             content=content.strip()
         )
         db.session.add(comment)
+
+        # 更新评论计数（仅根评论 +1）
+        if parent_id is None:
+            post.comment_count = (post.comment_count or 0) + 1
+
         db.session.commit()
         db.session.refresh(comment)
+
+        # 通知：评论通知博文作者，回复通知父评论者（失败静默）
+        try:
+            from core.services.notification_service import notification_service
+            if parent_id is None and post.author_id != user_id:
+                notification_service.create(
+                    user_id=post.author_id,
+                    type_='comment',
+                    actor_id=user_id,
+                    target_id=post_id
+                )
+            elif parent_id is not None:
+                parent = db.session.get(Comment, parent_id)
+                if parent and parent.user_id != user_id:
+                    notification_service.create(
+                        user_id=parent.user_id,
+                        type_='reply',
+                        actor_id=user_id,
+                        target_id=post_id
+                    )
+        except Exception:
+            pass
+
         return comment
 
     @staticmethod
@@ -96,9 +138,54 @@ class CommentService:
         if not is_admin and comment.user_id != operator_id:
             raise PermissionError('无权删除此评论')
 
+        # 更新评论计数（仅根评论 -1）
+        if comment.parent_id is None:
+            post = db.session.get(Post, comment.post_id)
+            if post:
+                post.comment_count = max(0, (post.comment_count or 0) - 1)
+
         db.session.delete(comment)
         db.session.commit()
         return True
+
+    @staticmethod
+    def update_comment(comment_id: int, user_id: int, content: str) -> 'Comment':
+        """编辑评论（仅作者）"""
+        comment = db.session.get(Comment, comment_id)
+        if not comment:
+            raise ValueError('评论不存在')
+        if comment.user_id != user_id:
+            raise PermissionError('无权编辑此评论')
+        comment.content = content.strip()
+        db.session.commit()
+        db.session.refresh(comment)
+        return comment
+
+    @staticmethod
+    def toggle_comment_like(user_id: int, comment_id: int) -> dict:
+        """切换评论点赞"""
+        from core.models.comment import CommentLike
+        from sqlalchemy import select
+        comment = db.session.get(Comment, comment_id)
+        if not comment:
+            raise ValueError('评论不存在')
+        existing = db.session.execute(
+            select(CommentLike).where(
+                CommentLike.user_id == user_id,
+                CommentLike.comment_id == comment_id
+            )
+        ).scalar_one_or_none()
+        if existing:
+            db.session.delete(existing)
+            comment.like_count = max(0, (comment.like_count or 0) - 1)
+            liked = False
+        else:
+            cl = CommentLike(user_id=user_id, comment_id=comment_id)
+            db.session.add(cl)
+            comment.like_count = (comment.like_count or 0) + 1
+            liked = True
+        db.session.commit()
+        return {'liked': liked, 'like_count': comment.like_count}
 
 
 comment_service = CommentService()

@@ -4,14 +4,14 @@ import type { ApiResponse, PaginationParams } from '@/types/api'
 
 export const resourcesApi = {
   /**
-   * 获取公共资源列表
-   * 改调 /files/public?category=resource
+   * 获取公共文档列表
+   * 改调 /files/public?category=document
    */
   getList(params?: PaginationParams): Promise<ApiResponse<FileItem[]>> {
     const mappedParams = {
       page: params?.page || 1,
       page_size: params?.limit || 10,
-      category: 'resource'
+      category: 'document'
     }
     return getList('/files/public', mappedParams)
   },
@@ -24,21 +24,20 @@ export const resourcesApi = {
   },
 
   /**
-   * 上传资源文件
-   * FormData 需包含：file, title，category 固定为 resource
+   * 上传文档文件
+   * FormData 需包含：file, title，category 固定为 document
    * 可选：description, visibility
    */
   upload(formData: FormData): Promise<ApiResponse<FileItem>> {
-    formData.set('category', 'resource')
+    formData.set('category', 'document')
     return post('/files', formData)
   },
 
   /**
-   * 获取资源下载 URL
-   * 复用旧 /resources/:id/download 端点（向后兼容）
+   * 获取文件下载 URL
    */
   getDownloadUrl(id: number): string {
-    return `${import.meta.env.VITE_API_BASE_URL}/resources/${id}/download`
+    return `${import.meta.env.VITE_API_BASE_URL}/api/v1/files/${id}/download`
   },
 
   /**

@@ -76,13 +76,13 @@
           <span class="unit-label">MB</span>
           <span class="hint-text">（{{ formatStorage(config.max_file_size) }}）</span>
         </el-form-item>
-        <el-form-item label="允许上传后缀" style="flex-direction: column; align-items: flex-start;">
+        <el-form-item label="允许上传后缀" class="ext-form-item">
           <el-input
             v-model="config.allowed_extensions"
             placeholder="png,jpg,mp4,pdf,..."
-            style="width: 480px; max-width: 100%"
+            class="ext-input"
           />
-          <div class="hint-text" style="margin-top: 6px; margin-left: 0">留空表示不限制后缀类型</div>
+          <div class="ext-hint">留空表示不限制后缀类型</div>
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="saveQuotaConfig">保存设置</el-button>
@@ -336,6 +336,24 @@ onMounted(() => {
     color: var(--el-text-color-placeholder);
     font-size: 12px;
   }
+}
+
+:deep(.ext-form-item) {
+  .el-form-item__content {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.ext-input {
+  width: 480px;
+  max-width: 100%;
+}
+
+.ext-hint {
+  margin-top: 6px;
+  color: var(--el-text-color-placeholder);
+  font-size: 12px;
 }
 
 .card-header-row {

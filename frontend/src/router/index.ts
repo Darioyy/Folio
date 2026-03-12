@@ -33,10 +33,38 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '文章详情' }
       },
       {
+        path: 'blog',
+        name: 'Blog',
+        component: () => import('@/views/Blog/index.vue'),
+        meta: { title: '博客' }
+      },
+      {
+        path: 'post/create',
+        name: 'PostCreate',
+        component: () => import('@/views/Blog/Editor.vue'),
+        meta: { title: '写博文', requiresAuth: true }
+      },
+      {
+        path: 'post/:id/edit',
+        name: 'PostEdit',
+        component: () => import('@/views/Blog/Editor.vue'),
+        meta: { title: '编辑博文', requiresAuth: true }
+      },
+      {
+        path: 'post/:id',
+        name: 'BlogPostDetail',
+        component: () => import('@/views/Blog/Detail.vue'),
+        meta: { title: '博文详情' }
+      },
+      {
+        path: 'post/:id/moderation',
+        name: 'PostHideInfo',
+        component: () => import('@/views/Blog/HideInfo.vue'),
+        meta: { title: '博文隐藏详情', requiresAuth: true }
+      },
+      {
         path: 'plaza',
-        name: 'Plaza',
-        component: () => import('@/views/Plaza/index.vue'),
-        meta: { title: '公共大厅' }
+        redirect: '/blog'
       }
     ]
   },
@@ -47,6 +75,14 @@ const routes: RouteRecordRaw[] = [
     name: 'Space',
     component: () => import('@/views/Space/index.vue'),
     meta: { title: '我的空间', requiresAuth: true, hideInMenu: true }
+  },
+
+  // 账户设置
+  {
+    path: '/settings',
+    name: 'Settings',
+    component: () => import('@/views/Settings/index.vue'),
+    meta: { title: '账户设置', requiresAuth: true, hideInMenu: true }
   },
 
   // 旧路由重定向（向后兼容）
@@ -122,16 +158,17 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '用户管理', requiresAdmin: true }
       },
       {
-        path: 'posts',
-        name: 'AdminPosts',
-        component: () => import('@/views/Admin/Posts.vue'),
-        meta: { title: '文章管理', requiresAdmin: true }
+        path: 'blog',
+        name: 'AdminBlog',
+        component: () => import('@/views/Admin/Blog.vue'),
+        meta: { title: '博客管理', requiresAdmin: true }
       },
+      { path: 'posts', redirect: '/admin/blog' },
       {
         path: 'content',
         name: 'AdminContent',
         component: () => import('@/views/Admin/Content.vue'),
-        meta: { title: '内容管理', requiresAdmin: true }
+        meta: { title: '内容管理', requiresRoot: true }
       },
       {
         path: 'settings',
@@ -172,7 +209,7 @@ router.beforeEach(async (to, from, next) => {
 
   // 设置页面标题
   if (title) {
-    document.title = `${title} - VaultShare`
+    document.title = `${title} - Folio`
   }
 
   // 需要登录的页面
@@ -201,6 +238,12 @@ router.beforeEach(async (to, from, next) => {
 
   // 需要管理员权限的页面
   if (to.meta.requiresAdmin && !userStore.isAdminOrRoot) {
+    next({ name: 'Home' })
+    return
+  }
+
+  // 需要 Root 权限的页面
+  if (to.meta.requiresRoot && !userStore.isRoot) {
     next({ name: 'Home' })
     return
   }

@@ -9,7 +9,7 @@ export type { FileItem }
 export interface FileListParams {
   page?: number
   page_size?: number
-  category?: 'image' | 'video' | 'document' | 'resource'
+  category?: 'image' | 'video' | 'document'
   visibility?: 'private' | 'public'
   user_id?: number     // admin 专用：筛选指定用户的文件
   group_id?: number    // 分组筛选：-1=未分组，正整数=指定分组
@@ -84,13 +84,6 @@ export const filesApi = {
    */
   delete(id: number): Promise<ApiResponse> {
     return del(`/files/${id}`)
-  },
-
-  /**
-   * 切换文件可见性（private ↔ public）
-   */
-  toggleVisibility(id: number): Promise<ApiResponse<{ visibility: string }>> {
-    return patch(`/files/${id}/visibility`)
   },
 
   /**
