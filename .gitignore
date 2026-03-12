@@ -25,6 +25,9 @@ ENV/
 # 上传文件
 uploads/
 
+# 调试前端
+view of page/
+
 # 数据库
 *.sql.backup
 *.db
