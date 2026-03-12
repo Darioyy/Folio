@@ -16,8 +16,10 @@ from config.default import Config, DevelopmentConfig, ProductionConfig
 from db.session import init_db, db as db_session
 
 # 导入 API v1 蓝图
-from api.v1 import (users_bp, media_bp, resources_bp, posts_bp, system_bp, hub_bp,
-                    files_bp, groups_bp, interactions_bp, comments_bp, notifications_bp, search_bp)
+from api.v1 import (users_bp, media_bp, resources_bp, posts_bp, post_interactions_bp,
+                    system_bp, hub_bp, files_bp, groups_bp, interactions_bp,
+                    comments_bp, notifications_bp, search_bp)
+from extensions import limiter
 
 
 # 配置日志
@@ -86,6 +88,9 @@ def create_app(config_name='development'):
     # 配置日志
     setup_logging(app)
 
+    # 初始化扩展
+    limiter.init_app(app)
+
     # 初始化数据库
     try:
         init_db(app)
@@ -122,6 +127,7 @@ def create_app(config_name='development'):
     app.register_blueprint(media_bp, url_prefix=f"{api_prefix}/media")
     app.register_blueprint(resources_bp, url_prefix=f"{api_prefix}/resources")
     app.register_blueprint(posts_bp, url_prefix=f"{api_prefix}/posts")
+    app.register_blueprint(post_interactions_bp, url_prefix=f"{api_prefix}/posts")
     app.register_blueprint(system_bp, url_prefix=f"{api_prefix}/system")
     app.register_blueprint(hub_bp, url_prefix=f"{api_prefix}/hub")
     app.register_blueprint(files_bp, url_prefix=f"{api_prefix}/files")

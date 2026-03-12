@@ -4,8 +4,69 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="0169a72c-5b74-4acd-b1a7-94aa38dc34f3" name="更改" comment="本地测试v2.0（互动区任存bug）">
+    <list default="true" id="0169a72c-5b74-4acd-b1a7-94aa38dc34f3" name="更改" comment="本地测试v2.0（互动区暂留bug）">
+      <change afterPath="$PROJECT_DIR$/view of page/01.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/view of page/02.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/api/v1/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/api/v1/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/api/v1/files.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/api/v1/files.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/api/v1/notifications.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/api/v1/notifications.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/api/v1/posts.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/api/v1/posts.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/api/v1/users.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/api/v1/users.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/core/models/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/core/models/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/core/models/comment.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/core/models/comment.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/core/models/file.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/core/models/file.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/core/models/interaction.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/core/models/interaction.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/core/models/notification.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/core/models/notification.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/core/models/post.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/core/models/post.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/core/schemas/post.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/core/schemas/post.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/core/services/comment_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/core/services/comment_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/core/services/follow_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/core/services/follow_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/core/services/interaction_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/core/services/interaction_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/core/services/notification_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/core/services/notification_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/core/services/post_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/core/services/post_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/core/services/user_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/core/services/user_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/migrations/add_follow_system.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/migrations/add_is_admin_column.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/migrations/add_is_root_column.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/migrations/add_private_hub_fields.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/migrations/add_profile_fields.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/migrations/merge_to_file_model.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/migrations/set_root_id_zero.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/backend/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/App.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/App.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/api/modules/files.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/api/modules/files.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/api/modules/hub.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/api/modules/hub.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/api/modules/interactions.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/api/modules/interactions.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/api/modules/notifications.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/api/modules/notifications.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/api/modules/posts.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/api/modules/posts.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/api/modules/resources.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/api/modules/resources.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/api/modules/system.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/api/modules/system.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/api/modules/users.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/api/modules/users.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/business/FileCard.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/business/FileCard.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/business/FilePreview.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/business/FilePreview.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/business/FollowUserList.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/business/FollowUserList.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/common/AppFooter.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/common/AppFooter.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/common/AppHeader.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/common/AppHeader.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/common/StorageDetail.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/common/StorageDetail.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/router/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/router/index.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/types/models.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/types/models.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/views/Admin/Content.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/views/Admin/Content.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/views/Admin/Dashboard.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/views/Admin/Dashboard.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/views/Admin/Settings.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/views/Admin/Settings.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/views/Admin/index.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/views/Admin/index.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/views/Auth/Login.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/views/Auth/Login.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/views/File/index.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/views/File/index.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/views/Home/index.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/views/Home/index.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/views/Plaza/index.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/views/Plaza/index.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/views/Posts/Detail.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/views/Posts/Detail.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/views/Space/index.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/views/Space/index.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/views/UserProfile/index.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/views/UserProfile/index.vue" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -45,8 +106,8 @@
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;last_opened_file_path&quot;: &quot;D:/Program/Code/Python/ai_web_dev/game/assets/audio&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;last_opened_file_path&quot;: &quot;D:/Program/Code/Python/ai_web_dev/view of page&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -58,11 +119,11 @@
 }</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="D:\Program\Code\Python\ai_web_dev\view of page" />
       <recent name="D:\Program\Code\Python\ai_web_dev\game\assets\audio" />
       <recent name="D:\Program\Code\Python\ai_web_dev\game\assets\player" />
       <recent name="D:\Program\Code\Python\ai_web_dev\game" />
       <recent name="D:\Program\Code\Python\ai_web_dev\frontend" />
-      <recent name="D:\Program\Code\Python\ai_web_dev\uploads\media\videos" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="D:\Program\Code\Python\ai_web_dev\backend\tests" />
@@ -111,7 +172,10 @@
       <workItem from="1773118515921" duration="136000" />
       <workItem from="1773129946567" duration="1001000" />
       <workItem from="1773132482671" duration="30695000" />
-      <workItem from="1773193406293" duration="26853000" />
+      <workItem from="1773193406293" duration="33006000" />
+      <workItem from="1773235099308" duration="9826000" />
+      <workItem from="1773282606512" duration="17084000" />
+      <workItem from="1773300135968" duration="7118000" />
     </task>
     <task id="LOCAL-00001" summary="本地测试v1.0">
       <option name="closed" value="true" />
@@ -177,7 +241,23 @@
       <option name="project" value="LOCAL" />
       <updated>1773227453594</updated>
     </task>
-    <option name="localTasksCounter" value="9" />
+    <task id="LOCAL-00009" summary="本地测试v2.0（互动区暂留bug）">
+      <option name="closed" value="true" />
+      <created>1773228215813</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1773228215813</updated>
+    </task>
+    <task id="LOCAL-00010" summary="本地测试v2.0（互动区暂留bug）">
+      <option name="closed" value="true" />
+      <created>1773228233726</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1773228233726</updated>
+    </task>
+    <option name="localTasksCounter" value="11" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -195,6 +275,7 @@
     <MESSAGE value="本地测试v1.2" />
     <MESSAGE value="本地测试v1.2.1" />
     <MESSAGE value="本地测试v2.0（互动区任存bug）" />
-    <option name="LAST_COMMIT_MESSAGE" value="本地测试v2.0（互动区任存bug）" />
+    <MESSAGE value="本地测试v2.0（互动区暂留bug）" />
+    <option name="LAST_COMMIT_MESSAGE" value="本地测试v2.0（互动区暂留bug）" />
   </component>
 </project>

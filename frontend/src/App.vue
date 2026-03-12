@@ -1,7 +1,9 @@
 <template>
   <router-view v-slot="{ Component, route }">
     <transition name="page-fade" mode="out-in">
-      <component :is="Component" :key="route.name" />
+      <keep-alive :include="['SpaceView']">
+        <component :is="Component" :key="route.meta?.keepAlive ? undefined : route.name" />
+      </keep-alive>
     </transition>
   </router-view>
 </template>

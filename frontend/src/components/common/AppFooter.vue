@@ -3,7 +3,7 @@
     <div class="container footer-container">
       <div class="footer-content">
         <div class="footer-brand">
-          <h3>VaultShare</h3>
+          <h3>Folio</h3>
           <p>私有云存储 + 内容分享社区</p>
         </div>
         <div class="footer-links">
@@ -25,7 +25,7 @@
         </div>
       </div>
       <div class="footer-bottom">
-        <p>&copy; {{ currentYear }} VaultShare. All rights reserved.</p>
+        <p>&copy; {{ currentYear }} Folio. All rights reserved.</p>
       </div>
     </div>
   </footer>

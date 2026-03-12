@@ -1,11 +1,11 @@
 """
-点赞 / 收藏服务
+点赞 / 收藏服务（v3.0：绑定 post_id）
 """
 from typing import Dict, List
 from sqlalchemy import select, and_
 from db.session import db
 from core.models.interaction import Like, Collection
-from core.models.file import File
+from core.models.post import Post
 
 
 class InteractionService:
@@ -16,32 +16,49 @@ class InteractionService:
     # ============================================================
 
     @staticmethod
-    def toggle_like(user_id: int, file_id: int) -> Dict:
+    def toggle_like(user_id: int, post_id: int) -> Dict:
         """切换点赞状态，返回 {liked: bool, like_count: int}"""
         with db.session.begin():
-            existing = db.session.execute(
-                select(Like).where(and_(Like.user_id == user_id, Like.file_id == file_id))
-            ).scalar_one_or_none()
+            post = db.session.get(Post, post_id)
+            if not post:
+                raise ValueError('博文不存在')
 
-            file = db.session.get(File, file_id)
-            if not file:
-                raise ValueError('文件不存在')
+            existing = db.session.execute(
+                select(Like).where(and_(Like.user_id == user_id, Like.post_id == post_id))
+            ).scalar_one_or_none()
 
             if existing:
                 db.session.delete(existing)
-                file.like_count = max(0, (file.like_count or 0) - 1)
+                post.like_count = max(0, (post.like_count or 0) - 1)
                 liked = False
             else:
-                db.session.add(Like(user_id=user_id, file_id=file_id))
-                file.like_count = (file.like_count or 0) + 1
+                db.session.add(Like(user_id=user_id, post_id=post_id))
+                post.like_count = (post.like_count or 0) + 1
                 liked = True
 
-        return {'liked': liked, 'like_count': file.like_count}
+        # 通知/撤销通知（幂等，避免反复点赞重复通知）
+        if post.author_id != user_id:
+            try:
+                from core.services.notification_service import notification_service
+                if liked:
+                    notification_service.upsert(
+                        user_id=post.author_id, type_='like',
+                        actor_id=user_id, target_id=post_id
+                    )
+                else:
+                    notification_service.delete_by_actor(
+                        user_id=post.author_id, type_='like',
+                        actor_id=user_id, target_id=post_id
+                    )
+            except Exception:
+                pass
+
+        return {'liked': liked, 'like_count': post.like_count}
 
     @staticmethod
-    def is_liked(user_id: int, file_id: int) -> bool:
+    def is_liked(user_id: int, post_id: int) -> bool:
         like = db.session.execute(
-            select(Like).where(and_(Like.user_id == user_id, Like.file_id == file_id))
+            select(Like).where(and_(Like.user_id == user_id, Like.post_id == post_id))
         ).scalar_one_or_none()
         return like is not None
 
@@ -50,32 +67,49 @@ class InteractionService:
     # ============================================================
 
     @staticmethod
-    def toggle_collect(user_id: int, file_id: int) -> Dict:
+    def toggle_collect(user_id: int, post_id: int) -> Dict:
         """切换收藏状态，返回 {collected: bool, collect_count: int}"""
         with db.session.begin():
-            existing = db.session.execute(
-                select(Collection).where(and_(Collection.user_id == user_id, Collection.file_id == file_id))
-            ).scalar_one_or_none()
+            post = db.session.get(Post, post_id)
+            if not post:
+                raise ValueError('博文不存在')
 
-            file = db.session.get(File, file_id)
-            if not file:
-                raise ValueError('文件不存在')
+            existing = db.session.execute(
+                select(Collection).where(and_(Collection.user_id == user_id, Collection.post_id == post_id))
+            ).scalar_one_or_none()
 
             if existing:
                 db.session.delete(existing)
-                file.collect_count = max(0, (file.collect_count or 0) - 1)
+                post.collect_count = max(0, (post.collect_count or 0) - 1)
                 collected = False
             else:
-                db.session.add(Collection(user_id=user_id, file_id=file_id))
-                file.collect_count = (file.collect_count or 0) + 1
+                db.session.add(Collection(user_id=user_id, post_id=post_id))
+                post.collect_count = (post.collect_count or 0) + 1
                 collected = True
 
-        return {'collected': collected, 'collect_count': file.collect_count}
+        # 通知/撤销通知（幂等）
+        if post.author_id != user_id:
+            try:
+                from core.services.notification_service import notification_service
+                if collected:
+                    notification_service.upsert(
+                        user_id=post.author_id, type_='collect',
+                        actor_id=user_id, target_id=post_id
+                    )
+                else:
+                    notification_service.delete_by_actor(
+                        user_id=post.author_id, type_='collect',
+                        actor_id=user_id, target_id=post_id
+                    )
+            except Exception:
+                pass
+
+        return {'collected': collected, 'collect_count': post.collect_count}
 
     @staticmethod
-    def is_collected(user_id: int, file_id: int) -> bool:
+    def is_collected(user_id: int, post_id: int) -> bool:
         coll = db.session.execute(
-            select(Collection).where(and_(Collection.user_id == user_id, Collection.file_id == file_id))
+            select(Collection).where(and_(Collection.user_id == user_id, Collection.post_id == post_id))
         ).scalar_one_or_none()
         return coll is not None
 
@@ -84,22 +118,22 @@ class InteractionService:
     # ============================================================
 
     @staticmethod
-    def batch_status(user_id: int, file_ids: List[int]) -> Dict:
-        """批量查询一批文件的 liked/collected 状态"""
-        if not file_ids:
+    def batch_status(user_id: int, post_ids: List[int]) -> Dict:
+        """批量查询多篇博文的 liked/collected 状态"""
+        if not post_ids:
             return {}
 
         liked_ids = set(db.session.execute(
-            select(Like.file_id).where(and_(Like.user_id == user_id, Like.file_id.in_(file_ids)))
+            select(Like.post_id).where(and_(Like.user_id == user_id, Like.post_id.in_(post_ids)))
         ).scalars().all())
 
         collected_ids = set(db.session.execute(
-            select(Collection.file_id).where(and_(Collection.user_id == user_id, Collection.file_id.in_(file_ids)))
+            select(Collection.post_id).where(and_(Collection.user_id == user_id, Collection.post_id.in_(post_ids)))
         ).scalars().all())
 
         return {
-            fid: {'liked': fid in liked_ids, 'collected': fid in collected_ids}
-            for fid in file_ids
+            pid: {'liked': pid in liked_ids, 'collected': pid in collected_ids}
+            for pid in post_ids
         }
 
     # ============================================================
@@ -108,7 +142,7 @@ class InteractionService:
 
     @staticmethod
     def get_user_collections(user_id: int, page: int = 1, page_size: int = 20) -> Dict:
-        """获取用户收藏的文件列表"""
+        """获取用户收藏的博文列表"""
         from sqlalchemy import func
         offset = (page - 1) * page_size
 
@@ -117,16 +151,16 @@ class InteractionService:
         ).scalar() or 0
 
         rows = db.session.execute(
-            select(Collection, File)
-            .join(File, Collection.file_id == File.id)
+            select(Collection, Post)
+            .join(Post, Collection.post_id == Post.id)
             .where(Collection.user_id == user_id)
             .order_by(Collection.created_at.desc())
             .offset(offset).limit(page_size)
         ).all()
 
         items = []
-        for coll, f in rows:
-            d = f.to_dict(include_user=True)
+        for coll, p in rows:
+            d = p.to_dict(include_author=True, include_category=True)
             d['collected_at'] = coll.created_at.isoformat()
             items.append(d)
 

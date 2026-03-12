@@ -20,6 +20,7 @@
               {{ user.nickname || user.username }}
               <el-tag v-if="user.is_root === 1 || user.is_root === true" type="danger" size="small">ROOT</el-tag>
               <el-tag v-else-if="user.is_admin === 1 || user.is_admin === true" type="warning" size="small">ADMIN</el-tag>
+              <el-tag v-if="user.is_mutual" type="success" size="small">互相关注</el-tag>
             </div>
             <div class="user-meta">
               <span>{{ user.followers_count || 0 }} 粉丝</span>
@@ -73,6 +74,7 @@ interface User {
   is_admin?: number | boolean
   is_root?: number | boolean
   is_following?: boolean
+  is_mutual?: boolean
 }
 
 interface Props {

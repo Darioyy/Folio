@@ -16,7 +16,6 @@
         <el-select v-model="filterCategory" placeholder="全部类型" clearable style="width: 140px" @change="handleSearch">
           <el-option label="图片" value="image" />
           <el-option label="视频" value="video" />
-          <el-option label="资源" value="resource" />
           <el-option label="文档" value="document" />
         </el-select>
         <el-button type="primary" @click="handleSearch">查询</el-button>
@@ -44,19 +43,16 @@
         <el-table-column label="大小" width="90">
           <template #default="{ row }">{{ formatSize(row.file_size) }}</template>
         </el-table-column>
-        <el-table-column label="可见性" width="90">
-          <template #default="{ row }">
-            <el-tag :type="row.visibility === 'public' ? 'success' : 'info'" size="small">
-              {{ row.visibility === 'public' ? '公开' : '私有' }}
-            </el-tag>
-          </template>
-        </el-table-column>
         <el-table-column label="上传时间" width="180">
           <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="80" fixed="right">
+        <el-table-column label="操作" width="70" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link size="small" @click="showEditDialog(row)">编辑</el-button>
+            <el-popconfirm title="确定删除该文件？" confirm-button-text="删除" confirm-button-type="danger" @confirm="handleDeleteRow(row)">
+              <template #reference>
+                <el-button text :icon="DeleteIcon" class="danger-btn" />
+              </template>
+            </el-popconfirm>
           </template>
         </el-table-column>
       </el-table>
@@ -74,59 +70,13 @@
         />
       </div>
     </el-card>
-
-    <!-- 编辑对话框 -->
-    <el-dialog v-model="editVisible" title="编辑文件" width="480px">
-      <el-form :model="editForm" label-width="80px">
-        <el-form-item label="标题">
-          <el-input v-model="editForm.title" placeholder="文件标题" />
-        </el-form-item>
-        <el-form-item label="描述">
-          <el-input v-model="editForm.description" type="textarea" :rows="3" placeholder="文件描述（可选）" />
-        </el-form-item>
-        <el-form-item label="可见性">
-          <el-select v-model="editForm.visibility" style="width: 100%">
-            <el-option label="公开" value="public" />
-            <el-option label="私有" value="private" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="上传者">
-          <span class="info-text">{{ selectedFile?.username || selectedFile?.nickname || '-' }}</span>
-        </el-form-item>
-        <el-form-item label="大小">
-          <span class="info-text">{{ formatSize(selectedFile?.file_size) }}</span>
-        </el-form-item>
-        <el-form-item label="类型">
-          <el-tag :type="categoryTagType(selectedFile?.file_category || '')" size="small">
-            {{ categoryLabel(selectedFile?.file_category || '') }}
-          </el-tag>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <div class="dialog-footer">
-          <el-popconfirm
-            title="确定删除该文件？此操作不可撤销。"
-            confirm-button-text="删除"
-            confirm-button-type="danger"
-            @confirm="handleDeleteFromDialog"
-          >
-            <template #reference>
-              <el-button type="danger" plain>删除文件</el-button>
-            </template>
-          </el-popconfirm>
-          <div style="flex: 1" />
-          <el-button @click="editVisible = false">取消</el-button>
-          <el-button type="primary" :loading="editSaving" @click="handleSave">保存</el-button>
-        </div>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Search } from '@element-plus/icons-vue'
+import { Search, Delete as DeleteIcon } from '@element-plus/icons-vue'
 import { systemApi } from '@/api/modules/system'
 import { filesApi } from '@/api/modules/files'
 import { formatDate } from '@/utils/format'
@@ -140,16 +90,11 @@ const pageSize = ref(20)
 const filterCategory = ref('')
 const searchUsername = ref('')
 
-const editVisible = ref(false)
-const editSaving = ref(false)
-const selectedFile = ref<FileItem | null>(null)
-const editForm = reactive({ title: '', description: '', visibility: 'public' as 'public' | 'private' })
-
 function categoryLabel(cat: string) {
-  return { image: '图片', video: '视频', resource: '资源', document: '文档' }[cat] ?? cat
+  return { image: '图片', video: '视频', document: '文档' }[cat] ?? cat
 }
 function categoryTagType(cat: string) {
-  return { image: '', video: 'warning', resource: 'success', document: 'info' }[cat] ?? ''
+  return { image: '', video: 'warning', document: 'info' }[cat] ?? ''
 }
 function formatSize(bytes?: number) {
   if (!bytes) return '-'
@@ -182,43 +127,10 @@ function handleSearch() {
   loadFiles()
 }
 
-function showEditDialog(row: FileItem) {
-  selectedFile.value = row
-  editForm.title = row.title
-  editForm.description = row.description || ''
-  editForm.visibility = row.visibility
-  editVisible.value = true
-}
-
-async function handleSave() {
-  if (!selectedFile.value) return
-  if (!editForm.title.trim()) {
-    ElMessage.warning('标题不能为空')
-    return
-  }
-  editSaving.value = true
+async function handleDeleteRow(row: FileItem) {
   try {
-    await filesApi.update(selectedFile.value.id, {
-      title: editForm.title.trim(),
-      description: editForm.description.trim() || undefined,
-      visibility: editForm.visibility,
-    })
-    ElMessage.success('保存成功')
-    editVisible.value = false
-    loadFiles()
-  } catch {
-    ElMessage.error('保存失败')
-  } finally {
-    editSaving.value = false
-  }
-}
-
-async function handleDeleteFromDialog() {
-  if (!selectedFile.value) return
-  try {
-    await filesApi.delete(selectedFile.value.id)
+    await filesApi.delete(row.id)
     ElMessage.success('文件已删除')
-    editVisible.value = false
     loadFiles()
   } catch {
     ElMessage.error('删除失败')
@@ -267,14 +179,7 @@ onMounted(loadFiles)
   justify-content: flex-end;
 }
 
-.dialog-footer {
-  display: flex;
-  align-items: center;
-  width: 100%;
-}
-
-.info-text {
-  font-size: 14px;
-  color: var(--el-text-color-regular);
+.danger-btn {
+  color: var(--el-color-danger) !important;
 }
 </style>

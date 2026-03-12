@@ -58,9 +58,9 @@
         <el-skeleton v-if="loading" :rows="8" animated />
       </template>
 
-      <!-- 资源文件预览（不支持直接预览，显示信息） -->
-      <template v-else-if="fileType === 'resource'">
-        <div class="preview-resource">
+      <!-- 文档文件预览（不支持直接预览，显示信息） -->
+      <template v-else-if="fileType === 'document'">
+        <div class="preview-document">
           <el-icon :size="80"><Folder /></el-icon>
           <h3>{{ title }}</h3>
           <p v-if="props.file?.file_name" class="file-name">{{ props.file.file_name }}</p>
@@ -134,7 +134,7 @@ interface Props {
     file_size?: number
     description?: string
   }
-  type?: 'media' | 'resource'
+  type?: 'media' | 'document'
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -163,8 +163,8 @@ const showDownloadConfirm = ref(false)
 const fileType = computed(() => {
   if (!props.file) return ''
 
-  // 资源文件类型
-  if (props.type === 'resource') {
+  // 文档文件类型
+  if (props.type === 'document') {
     const fileName = props.file.file_name || ''
     const ext = fileName.split('.').pop()?.toLowerCase() || ''
 
@@ -176,8 +176,8 @@ const fileType = computed(() => {
       return 'image'
     }
 
-    // 其他资源文件显示信息
-    return 'resource'
+    // 其他文档文件显示信息
+    return 'document'
   }
 
   const fileName = props.file.file_name || ''
@@ -223,14 +223,14 @@ const fileUrl = computed(() => {
     return `${apiBase}/media/${props.file.id}/view`
   }
 
-  // 资源文件 - 支持预览的格式
-  if (props.type === 'resource') {
+  // 文档文件 - 支持预览的格式
+  if (props.type === 'document') {
     const fileName = props.file.file_name || ''
     const ext = fileName.split('.').pop()?.toLowerCase() || ''
 
     // PDF 和图片可以直接预览
     if (ext === 'pdf' || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext)) {
-      return `${apiBase}/resources/${props.file.id}/download`
+      return `${apiBase}/files/${props.file.id}/download`
     }
   }
 
@@ -242,8 +242,8 @@ const downloadUrl = computed(() => {
   if (!props.file?.id) return ''
   const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1'
 
-  if (props.type === 'resource') {
-    return `${apiBase}/resources/${props.file.id}/download`
+  if (props.type === 'document') {
+    return `${apiBase}/files/${props.file.id}/download`
   }
 
   // 媒体文件也可以下载
@@ -379,11 +379,11 @@ watch(() => props.file, () => {
     }
   }
 
-  // 资源文件预览
-  &.preview-resource {
+  // 文档文件预览
+  &.preview-document {
     min-height: 400px;
 
-    .preview-resource {
+    .preview-document {
       display: flex;
       flex-direction: column;
       align-items: center;

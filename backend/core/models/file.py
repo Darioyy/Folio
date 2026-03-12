@@ -23,7 +23,7 @@ class File(db_session.Model):
     file_size = Column(BigInteger, nullable=True, comment='文件大小（字节）')
     mime_type = Column(String(100), nullable=True, comment='MIME 类型')
     file_category = Column(
-        Enum('image', 'video', 'document', 'resource', name='file_category_enum'),
+        Enum('image', 'video', 'document', name='file_category_enum'),
         nullable=False,
         comment='文件分类'
     )

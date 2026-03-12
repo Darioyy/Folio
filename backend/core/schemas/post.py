@@ -10,7 +10,7 @@ class PostBase(BaseModel):
     """文章基础 Schema"""
 
     title: str = Field(..., min_length=1, max_length=200, description="文章标题")
-    content: str = Field(..., min_length=1, description="文章内容")
+    content: str = Field("", description="文章内容")
     summary: Optional[str] = Field(None, description="文章摘要")
     category_id: Optional[int] = Field(None, description="分类ID")
 
@@ -18,6 +18,7 @@ class PostBase(BaseModel):
 class PostCreate(PostBase):
     """创建文章 Schema"""
 
+    cover_image_id: Optional[int] = Field(None, description="封面图文件ID")
     status: Optional[str] = Field(
         "draft", pattern="^(draft|published|archived)$", description="文章状态"
     )
@@ -27,10 +28,17 @@ class PostUpdate(BaseModel):
     """更新文章 Schema"""
 
     title: Optional[str] = Field(None, min_length=1, max_length=200)
-    content: Optional[str] = Field(None, min_length=1)
+    content: Optional[str] = Field(None)
     summary: Optional[str] = None
     category_id: Optional[int] = None
+    cover_image_id: Optional[int] = None
     status: Optional[str] = Field(None, pattern="^(draft|published|archived)$")
+
+
+class PostAttachmentAdd(BaseModel):
+    """添加附件 Schema"""
+
+    file_id: int = Field(..., description="文件ID")
 
 
 class PostResponse(PostBase):

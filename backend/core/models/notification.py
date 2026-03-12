@@ -14,7 +14,8 @@ class Notification(db.Model):
     id = Column(Integer, primary_key=True, autoincrement=True, comment='通知ID')
     user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, comment='接收者用户ID')
     type = Column(
-        Enum('like', 'comment', 'reply', 'follow', name='notification_type_enum'),
+        Enum('like', 'collect', 'comment', 'reply', 'follow', 'new_post', 'admin', 'appeal', 'review_result',
+             name='notification_type_enum'),
         nullable=False, comment='通知类型'
     )
     actor_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, comment='触发者用户ID')

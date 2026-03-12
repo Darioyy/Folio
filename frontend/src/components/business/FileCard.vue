@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { VideoPlay, Lock, Unlock } from '@element-plus/icons-vue'
+import { VideoPlay } from '@element-plus/icons-vue'
 import type { FileItem } from '@/types/models'
 import { fromNow, getFileUrl } from '@/utils/format'
 import FileTypeIcon from './FileTypeIcon.vue'
@@ -9,12 +9,10 @@ import FileTypeIcon from './FileTypeIcon.vue'
 interface Props {
   file: FileItem
   showAuthor?: boolean
-  showBadge?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showAuthor: true,
-  showBadge: true
 })
 
 defineEmits<{
@@ -60,7 +58,7 @@ function handleAuthorClick(e: MouseEvent) {
       <img
         v-if="file.file_category === 'image' && thumbnailSrc && !imgError"
         :src="thumbnailSrc"
-        :alt="file.title"
+        :alt="file.file_name"
         class="thumbnail-img"
         loading="lazy"
         @error="imgError = true"
@@ -70,7 +68,7 @@ function handleAuthorClick(e: MouseEvent) {
         <img
           v-if="videoThumbSrc"
           :src="videoThumbSrc"
-          :alt="file.title"
+          :alt="file.file_name"
           class="thumbnail-img"
           loading="lazy"
           @error="videoThumbError = true"
@@ -90,16 +88,11 @@ function handleAuthorClick(e: MouseEvent) {
           size="md"
         />
       </div>
-      <!-- 可见性 badge -->
-      <div v-if="showBadge" class="visibility-badge" :class="file.visibility">
-        <el-icon :size="11"><Lock v-if="file.visibility === 'private'" /><Unlock v-else /></el-icon>
-        <span>{{ file.visibility === 'private' ? '私有' : '公开' }}</span>
-      </div>
     </div>
 
     <!-- 内容区 -->
     <div class="card-body">
-      <p class="card-title">{{ file.title }}</p>
+      <p class="card-title">{{ file.file_name }}</p>
       <p v-if="file.description" class="card-desc">{{ file.description }}</p>
       <div class="card-meta">
         <template v-if="showAuthor">
@@ -172,29 +165,6 @@ function handleAuthorClick(e: MouseEvent) {
     color: #fff;
   }
 
-  .visibility-badge {
-    position: absolute;
-    top: $spacing-sm;
-    right: $spacing-sm;
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    padding: 2px 8px;
-    border-radius: $radius-full;
-    font-size: $font-xs;
-    font-weight: 500;
-    backdrop-filter: blur(4px);
-
-    &.private {
-      background: rgba(0, 0, 0, 0.55);
-      color: #fff;
-    }
-
-    &.public {
-      background: rgba(16, 185, 129, 0.85);
-      color: #fff;
-    }
-  }
 }
 
 .card-body {

@@ -150,14 +150,14 @@ onMounted(() => {
   :deep(code) {
     background: var(--el-fill-color-light);
     padding: 2px 6px;
-    border-radius: $border-radius-small;
+    border-radius: $radius-sm;
     font-family: 'Courier New', monospace;
   }
 
   :deep(pre) {
     background: var(--el-fill-color-light);
     padding: $spacing-md;
-    border-radius: $border-radius-base;
+    border-radius: $radius-md;
     overflow-x: auto;
     margin-bottom: $spacing-md;
   }

@@ -20,6 +20,7 @@ from core.utils.response import success_response, error_response, pagination_res
 from core.utils.permissions import get_user_role
 from core.services.system_service import SystemService
 from config.default import Config
+from extensions import limiter
 
 
 # 创建蓝图
@@ -118,6 +119,7 @@ def get_captcha():
 
 
 @bp.route('/login', methods=['POST'])
+@limiter.limit("10 per minute")
 def login():
     """
     用户登录
@@ -156,6 +158,10 @@ def login():
 
     user = UserService.authenticate(data.username, data.password, db_session.session)
 
+    # Python-level 大小写精确校验（MySQL utf8mb4_unicode_ci 不敏感，补充精确比对）
+    if user and user.username != data.username:
+        user = None
+
     if not user:
         return error_response('LOGIN_FAILED', '用户名或密码错误', 401)
 
@@ -173,6 +179,7 @@ def login():
 
 
 @bp.route('/register', methods=['POST'])
+@limiter.limit("5 per minute")
 def register():
     """
     用户注册
@@ -273,11 +280,27 @@ def get_current_user():
             }
         }
     """
+    from sqlalchemy import func, select as sa_select
+    from core.models.post import Post
+
     user = UserService.get_by_id(g.user_id, db_session.session)
     if not user:
         return error_response('USER_NOT_FOUND', '用户不存在', 404)
 
-    return success_response(user.to_dict())
+    data = user.to_dict()
+
+    # 统计该用户所有博文的总获赞数和总被收藏数
+    like_count = db_session.session.execute(
+        sa_select(func.sum(Post.like_count)).where(Post.author_id == g.user_id)
+    ).scalar() or 0
+    collect_count = db_session.session.execute(
+        sa_select(func.sum(Post.collect_count)).where(Post.author_id == g.user_id)
+    ).scalar() or 0
+
+    data['like_count'] = int(like_count)
+    data['collect_count'] = int(collect_count)
+
+    return success_response(data)
 
 
 @bp.route('/me/password', methods=['PUT'])
@@ -756,6 +779,16 @@ def get_user_by_username(username: str):
         public_info['followers_count'] = 0
         public_info['following_count'] = 0
 
+    # 互相关注检测（仅登录用户可见，且不是自己）
+    from flask import session as flask_session
+    viewer_id = flask_session.get('user_id')
+    if viewer_id and viewer_id != user.id:
+        from core.services.follow_service import follow_service
+        # is_following_back：目标用户是否关注了当前查看者
+        public_info['is_following_back'] = follow_service.is_following(user.id, viewer_id)
+    else:
+        public_info['is_following_back'] = False
+
     return success_response(public_info)
 
 
@@ -895,6 +928,27 @@ def get_user_public_stats(username: str):
     ).scalar() or 0
     stats['resources'] = resource_count
 
+    # 获赞数和被收藏数（受 privacy_stats 控制）
+    if user.privacy_stats == 1:
+        from core.models.post import Post as PostModel
+        likes_received = db_session.session.execute(
+            select(func.sum(PostModel.like_count)).where(
+                PostModel.author_id == user.id,
+                PostModel.status == 'published'
+            )
+        ).scalar() or 0
+        collects_received = db_session.session.execute(
+            select(func.sum(PostModel.collect_count)).where(
+                PostModel.author_id == user.id,
+                PostModel.status == 'published'
+            )
+        ).scalar() or 0
+        stats['likes_received'] = int(likes_received)
+        stats['collects_received'] = int(collects_received)
+    else:
+        stats['likes_received'] = None
+        stats['collects_received'] = None
+
     return success_response(stats)
 
 
@@ -968,10 +1022,15 @@ def get_followers(user_id: int):
 
     followers, total = follow_service.get_followers(user_id, page, page_size)
 
-    # 检查当前用户的关注状态
+    follower_ids = [f['id'] for f in followers]
+    # 互相关注：profile owner 是否回关了这些粉丝
+    owner_follows = follow_service.check_follow_status(user_id, follower_ids)
+    for follower in followers:
+        follower['is_mutual'] = owner_follows.get(follower['id'], False)
+
+    # 检查当前访问者的关注状态
     is_logged_in = 'user_id' in session
     if is_logged_in:
-        follower_ids = [f['id'] for f in followers]
         follow_status = follow_service.check_follow_status(session['user_id'], follower_ids)
         for follower in followers:
             follower['is_following'] = follow_status.get(follower['id'], False)
@@ -1001,10 +1060,15 @@ def get_following(user_id: int):
 
     following, total = follow_service.get_following(user_id, page, page_size)
 
-    # 检查当前用户的关注状态
+    following_ids = [f['id'] for f in following]
+    # 互相关注：被关注者是否也关注了 profile owner
+    mutual_set = follow_service.get_mutual_followings(user_id, following_ids)
+    for user in following:
+        user['is_mutual'] = user['id'] in mutual_set
+
+    # 检查当前访问者的关注状态
     is_logged_in = 'user_id' in session
     if is_logged_in:
-        following_ids = [f['id'] for f in following]
         follow_status = follow_service.check_follow_status(session['user_id'], following_ids)
         for user in following:
             user['is_following'] = follow_status.get(user['id'], False)
@@ -1065,6 +1129,26 @@ def redeem_invite_code():
         return error_response('INVALID_INVITE_CODE', '内测码无效或已被使用', 400)
 
     return success_response(message='内测码兑换成功')
+
+
+@bp.route('/username/<username>/posts', methods=['GET'])
+def get_user_posts(username: str):
+    """
+    获取某用户的已发布博文列表（公开，无需登录）
+    GET /api/v1/users/username/:username/posts?page=1&page_size=20
+    """
+    from core.services.post_service import PostService
+
+    page = request.args.get('page', 1, type=int)
+    page_size = min(request.args.get('page_size', 20, type=int), 100)
+
+    try:
+        result = PostService.get_user_posts(username=username, page=page, page_size=page_size)
+        return success_response(result)
+    except ValueError as e:
+        return error_response('USER_NOT_FOUND', str(e), 404)
+    except Exception as e:
+        return error_response('INTERNAL_ERROR', str(e), 500)
 
 
 @bp.route('/me/privacy', methods=['PUT'])

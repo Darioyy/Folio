@@ -2,7 +2,7 @@
   <div class="home-page">
     <section class="hero-section">
       <div class="hero-content">
-        <h1 class="hero-title">VaultShare</h1>
+        <h1 class="hero-title">Folio</h1>
         <p class="hero-subtitle">私有云存储 · 灵活分享 · 社区互动</p>
         <div class="hero-actions">
           <el-button

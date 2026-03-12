@@ -159,12 +159,12 @@ import { fromNow, formatFileSize, getFileUrl, formatDate } from '@/utils/format'
 
 const router = useRouter()
 
-type TabType = 'all' | 'image' | 'video' | 'resource'
+type TabType = 'all' | 'image' | 'video' | 'document'
 type ViewMode = 'grid' | 'list'
 
 const tabs: { value: TabType; label: string }[] = [
   { value: 'all', label: '全部' },
-  { value: 'resource', label: '资源' },
+  { value: 'document', label: '文档' },
   { value: 'image', label: '图片' },
   { value: 'video', label: '视频' },
 ]
@@ -194,9 +194,9 @@ const currentFile = ref<FileItem | null>(null)
 
 const hasMore = computed(() => files.value.length < totalCount.value)
 
-const previewType = computed<'media' | 'resource'>(() => {
+const previewType = computed<'media' | 'document'>(() => {
   if (!currentFile.value) return 'media'
-  return currentFile.value.file_category === 'resource' ? 'resource' : 'media'
+  return currentFile.value.file_category === 'document' ? 'document' : 'media'
 })
 
 async function loadFiles(reset = true) {
@@ -210,7 +210,7 @@ async function loadFiles(reset = true) {
   try {
     const category = activeTab.value === 'all'
       ? undefined
-      : activeTab.value as 'image' | 'video' | 'resource'
+      : activeTab.value as 'image' | 'video' | 'document'
     const res = await filesApi.getPublicList({
       page: currentPage.value,
       page_size: pageSize,
@@ -235,7 +235,7 @@ async function loadFiles(reset = true) {
 function handleTabChange(tab: TabType) {
   activeTab.value = tab
   // Auto-switch view per content type
-  if (tab === 'resource') viewMode.value = 'list'
+  if (tab === 'document') viewMode.value = 'list'
   else viewMode.value = 'grid'
   loadFiles(true)
 }

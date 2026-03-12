@@ -8,7 +8,7 @@
 
     <div class="login-container">
       <div class="login-brand">
-        <h1>VaultShare</h1>
+        <h1>Folio</h1>
         <p>欢迎回来</p>
       </div>
 
@@ -318,17 +318,12 @@ function goBack() {
 .login-footer {
   text-align: center;
   margin-top: 20px;
-  color: white;
   font-size: 14px;
+  color: var(--el-text-color-secondary);
 
   .el-link {
-    color: white;
     font-weight: 600;
     margin-left: 4px;
-
-    &:hover {
-      color: rgba(255, 255, 255, 0.8);
-    }
   }
 }
 

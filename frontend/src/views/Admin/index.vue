@@ -4,8 +4,8 @@
       <!-- 侧边栏 -->
       <el-aside :width="collapsed ? '64px' : '200px'" class="admin-aside">
         <div class="admin-logo" @click="goToHome">
-          <h1 v-if="!collapsed">VaultShare</h1>
-          <span v-else class="logo-icon">V</span>
+          <h1 v-if="!collapsed">Folio</h1>
+          <span v-else class="logo-icon">F</span>
         </div>
         <el-menu
           :default-active="activeMenu"
@@ -20,13 +20,13 @@
             <el-icon><User /></el-icon>
             <span>用户管理</span>
           </el-menu-item>
-          <el-menu-item index="/admin/posts">
+          <el-menu-item index="/admin/blog">
             <el-icon><Document /></el-icon>
-            <span>文章管理</span>
+            <span>博客管理</span>
           </el-menu-item>
-          <el-menu-item index="/admin/content">
+          <el-menu-item v-if="userStore.isRoot" index="/admin/content">
             <el-icon><Files /></el-icon>
-            <span>内容管理</span>
+            <span>文件管理</span>
           </el-menu-item>
           <el-menu-item v-if="userStore.isRoot" index="/admin/settings">
             <el-icon><Setting /></el-icon>
@@ -71,9 +71,9 @@
                     <el-icon><HomeFilled /></el-icon>
                     首页
                   </el-dropdown-item>
-                  <el-dropdown-item @click="goToSpace">
-                    <el-icon><Grid /></el-icon>
-                    我的空间
+                  <el-dropdown-item @click="goToSettings">
+                    <el-icon><Setting /></el-icon>
+                    账户设置
                   </el-dropdown-item>
                   <el-dropdown-item @click="handleLogout">
                     <el-icon><SwitchButton /></el-icon>
@@ -99,7 +99,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import {
   Setting, User, Document, Files, DataAnalysis,
-  Expand, Fold, HomeFilled, UserFilled, SwitchButton, Grid,
+  Expand, Fold, HomeFilled, UserFilled, SwitchButton,
   Sunny, Moon
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
@@ -121,8 +121,9 @@ const currentTitle = computed(() => {
   const titles: Record<string, string> = {
     '/admin/dashboard': '数据概览',
     '/admin/users': '用户管理',
+    '/admin/blog': '博客管理',
     '/admin/posts': '文章管理',
-    '/admin/content': '内容管理',
+    '/admin/content': '文件管理',
     '/admin/settings': '系统设置',
   }
   return titles[route.path] || '后台管理'
@@ -157,8 +158,8 @@ function goToHome() {
   router.push({ name: 'Home' })
 }
 
-function goToSpace() {
-  router.push({ name: 'Space' })
+function goToSettings() {
+  router.push({ name: 'Settings' })
 }
 
 async function handleLogout() {
@@ -281,7 +282,7 @@ async function handleLogout() {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: $spacing-sm;
 }
 
 .theme-toggle {

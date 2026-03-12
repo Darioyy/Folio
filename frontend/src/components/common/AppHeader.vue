@@ -4,7 +4,7 @@
       <!-- Logo -->
       <div class="header-brand">
         <router-link to="/" class="brand-link">
-          <h1>VaultShare</h1>
+          <span class="brand-name">Folio</span>
         </router-link>
       </div>
 
@@ -26,16 +26,18 @@
 
       <!-- 右侧操作区 -->
       <div class="header-actions">
-        <!-- 搜索框（桌面端） -->
+        <!-- 搜索框（桌面端，可折叠） -->
         <div class="search-wrap hide-on-mobile">
-          <div :class="['search-box', { focused: searchFocused }]">
-            <el-icon class="search-icon"><Search /></el-icon>
+          <div :class="['search-box', { expanded: searchExpanded }]">
+            <el-icon class="search-icon" @click="expandSearch"><Search /></el-icon>
             <input
+              v-show="searchExpanded"
+              ref="searchInputRef"
               v-model="searchQuery"
               class="search-input"
               placeholder="搜索..."
-              @focus="searchFocused = true"
-              @blur="searchFocused = false"
+              @focus="searchExpanded = true"
+              @blur="onSearchBlur"
               @keyup.enter="doSearch"
             />
           </div>
@@ -53,6 +55,7 @@
         <!-- 通知铃铛（登录后显示） -->
         <el-popover
           v-if="userStore.isLoggedIn"
+          ref="notifPopoverRef"
           placement="bottom-end"
           :width="320"
           trigger="click"
@@ -67,7 +70,10 @@
           <div class="notif-panel">
             <div class="notif-panel-header">
               <span class="notif-panel-title">通知</span>
-              <el-button v-if="unreadCount > 0" link size="small" @click="markAllRead">全部已读</el-button>
+              <div class="notif-actions">
+                <el-button v-if="unreadCount > 0" link size="small" @click="markAllRead">全部已读</el-button>
+                <el-button v-if="notifications.length > 0" link size="small" type="danger" @click="clearAllNotifications">清除全部</el-button>
+              </div>
             </div>
             <div v-if="notifLoading" class="notif-loading">
               <el-skeleton :rows="3" animated />
@@ -78,6 +84,7 @@
                 v-for="n in notifications"
                 :key="n.id"
                 :class="['notif-item', { unread: !n.is_read }]"
+                @click="handleNotifClick(n)"
               >
                 <el-avatar :size="32" class="notif-avatar">
                   {{ (n.actor_nickname || n.actor_username || '?')[0] }}
@@ -100,15 +107,15 @@
             </div>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item @click="goToSpace">
-                  <el-icon><Grid /></el-icon>
-                  我的空间
+                <el-dropdown-item @click="goToSettings">
+                  <el-icon><Setting /></el-icon>
+                  账户设置
                 </el-dropdown-item>
                 <el-dropdown-item v-if="userStore.isAdminOrRoot" @click="goToAdmin">
                   <el-icon><Setting /></el-icon>
                   后台管理
                 </el-dropdown-item>
-                <el-dropdown-item @click="handleLogout">
+                <el-dropdown-item divided @click="handleLogout">
                   <el-icon><SwitchButton /></el-icon>
                   退出登录
                 </el-dropdown-item>
@@ -162,13 +169,13 @@
               <el-avatar :size="40" :icon="UserFilled" />
               <span>{{ displayName }}</span>
             </div>
-            <el-button text block @click="goToSpace">
-              <el-icon><Grid /></el-icon>
-              我的空间
-            </el-button>
             <el-button v-if="userStore.isAdminOrRoot" text block @click="goToAdmin">
               <el-icon><Setting /></el-icon>
               后台管理
+            </el-button>
+            <el-button text block @click="goToSettings">
+              <el-icon><Setting /></el-icon>
+              账户设置
             </el-button>
             <el-button text block type="danger" @click="handleLogout">
               退出登录
@@ -184,12 +191,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessageBox } from 'element-plus'
+import { ElMessageBox, ElMessage } from 'element-plus'
 import {
   Menu, Close, Moon, Sunny, UserFilled, Setting, SwitchButton,
-  House, Grid, Search, Bell
+  House, Grid, Search, Bell, Box, Star
 } from '@element-plus/icons-vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { useUserStore } from '@/stores/user'
@@ -206,7 +213,9 @@ const appStore = useAppStore()
 
 const mobileMenuOpen = ref(false)
 const searchQuery = ref('')
-const searchFocused = ref(false)
+const searchExpanded = ref(false)
+const searchInputRef = ref<HTMLInputElement | null>(null)
+const notifPopoverRef = ref<any>(null)
 
 // 通知
 const unreadCount = ref(0)
@@ -216,7 +225,7 @@ let notifTimer: ReturnType<typeof setInterval> | null = null
 
 const isDarkMode = computed(() => appStore.isDarkMode)
 
-// 头像 URL（uid+时间戳双重缓存破坏：切换用户或更新头像时强制重新加载）
+// 头像 URL
 const avatarUrl = computed(() => {
   const user = userStore.currentUser
   if (user?.avatar) {
@@ -227,22 +236,40 @@ const avatarUrl = computed(() => {
   return undefined
 })
 
-// 显示名称（优先显示昵称）
 const displayName = computed(() => {
   const user = userStore.currentUser
   return user?.nickname || user?.username || ''
 })
 
-const navItems = computed(() => [
-  { name: 'Home', label: '首页', path: '/', icon: House },
-  { name: 'Plaza', label: '公共大厅', path: '/plaza', icon: Grid }
-])
+const navItems = computed(() => {
+  const items: Array<{ name: string; label: string; path: string; icon: any }> = [
+    { name: 'Home', label: '首页', path: '/', icon: House },
+    { name: 'Blog', label: '发现', path: '/blog', icon: Grid },
+  ]
+  if (userStore.isLoggedIn) {
+    items.push({ name: 'Following', label: '关注', path: '/following', icon: Star })
+    items.push({ name: 'Space', label: '我的空间', path: '/space', icon: Box })
+  }
+  return items
+})
+
+function expandSearch() {
+  searchExpanded.value = true
+  nextTick(() => searchInputRef.value?.focus())
+}
+
+function onSearchBlur() {
+  if (!searchQuery.value.trim()) {
+    searchExpanded.value = false
+  }
+}
 
 function doSearch() {
   const q = searchQuery.value.trim()
   if (!q) return
   router.push({ name: 'Search', query: { q } })
   searchQuery.value = ''
+  searchExpanded.value = false
 }
 
 function goToSearchPage() {
@@ -275,15 +302,72 @@ async function markAllRead() {
   } catch { /* ignore */ }
 }
 
+async function clearAllNotifications() {
+  try {
+    await notificationsApi.clearAll()
+    notifications.value = []
+    unreadCount.value = 0
+  } catch {
+    ElMessage.error('清除失败')
+  }
+}
+
+function closePopover() {
+  notifPopoverRef.value?.hide?.()
+}
+
+function handleNotifClick(n: Notification) {
+  closePopover()
+  if (!n.is_read) {
+    n.is_read = 1
+    if (unreadCount.value > 0) unreadCount.value--
+    // 同步后端已读状态
+    notificationsApi.readOne(n.id).catch(() => {})
+  }
+  if (n.type === 'follow') {
+    router.push(`/u/${n.actor_username}`)
+  } else if (n.type === 'admin') {
+    // 博文被隐藏通知 → 跳转至隐藏详情页
+    if (n.target_id) router.push(`/post/${n.target_id}/moderation`)
+  } else if (n.type === 'review_result') {
+    // 申诉结果通知
+    if (n.target_id) {
+      const action = n.extra?.action
+      if (action === 'approved') router.push(`/post/${n.target_id}`)
+      else router.push(`/post/${n.target_id}/moderation`)
+    }
+  } else if (n.type === 'appeal') {
+    // 管理员收到申诉 → 跳转后台博客管理
+    router.push('/admin/blog')
+  } else if (n.target_id) {
+    const hash = (n.type === 'comment' || n.type === 'reply') ? '#comments' : ''
+    router.push(`/post/${n.target_id}${hash}`)
+  }
+}
+
 function formatNotif(n: Notification): string {
-  const actor = n.actor_nickname || n.actor_username || '某用户'
-  const fileTitle = n.extra?.file_title ? `《${n.extra.file_title}》` : '你的文件'
+  const actor = n.actor_nickname || n.actor_username || '管理员'
+  const postTitle = n.extra?.post_title ? `《${n.extra.post_title}》` : '你的博文'
   const content = n.extra?.content ? `：${n.extra.content}` : ''
+  const reason = n.extra?.reason ? `原因：${n.extra.reason}` : ''
   switch (n.type) {
-    case 'like': return `${actor} 赞了你的 ${fileTitle}`
-    case 'comment': return `${actor} 评论了 ${fileTitle}${content}`
+    case 'like': return `${actor} 赞了 ${postTitle}`
+    case 'collect': return `${actor} 收藏了 ${postTitle}`
+    case 'comment': return `${actor} 评论了 ${postTitle}${content}`
     case 'reply': return `${actor} 回复了你的评论${content}`
     case 'follow': return `${actor} 关注了你`
+    case 'new_post': return `您关注的 ${actor} 发布了新博文 ${postTitle}`
+    case 'admin': return `你的博文 ${postTitle} 已被隐藏${reason ? '，原因：' + reason : ''}`
+    case 'appeal': {
+      const appealPost = n.extra?.post_title ? `《${n.extra.post_title}》` : '某博文'
+      return `${actor} 对 ${appealPost} 提交了申诉`
+    }
+    case 'review_result': {
+      const approved = n.extra?.action === 'approved'
+      return approved
+        ? `你对 ${postTitle} 的申诉已通过，博文已恢复`
+        : `你对 ${postTitle} 的申诉被拒绝${reason ? '，原因：' + reason : ''}`
+    }
     default: return '新通知'
   }
 }
@@ -315,6 +399,11 @@ function goToLogin() {
 function goToSpace() {
   closeMobileMenu()
   router.push({ name: 'Space' })
+}
+
+function goToSettings() {
+  closeMobileMenu()
+  router.push({ name: 'Settings' })
 }
 
 function goToAdmin() {
@@ -374,20 +463,42 @@ async function handleLogout() {
 }
 
 .header-brand {
-  .brand-link {
-    text-decoration: none;
-    color: var(--el-text-color-primary);
+  flex-shrink: 0;
 
-    h1 {
-      font-size: 22px;
-      font-weight: 700;
-      margin: 0;
-      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      letter-spacing: -0.5px;
+  .brand-link {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    text-decoration: none;
+    transition: transform $transition-fast, opacity $transition-fast;
+
+    &:hover {
+      opacity: 0.88;
+      transform: translateY(-0.5px);
     }
+  }
+
+  .brand-icon {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    filter: drop-shadow(0 2px 6px rgba(99,102,241,0.35));
+    transition: filter $transition-fast;
+
+    .brand-link:hover & {
+      filter: drop-shadow(0 3px 8px rgba(99,102,241,0.5));
+    }
+  }
+
+  .brand-name {
+    font-size: 21px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #6366f1 0%, #7c3aed 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1;
   }
 }
 
@@ -431,7 +542,7 @@ async function handleLogout() {
   gap: $spacing-sm;
 }
 
-// 搜索框
+// 搜索框（可折叠）
 .search-wrap {
   display: flex;
   align-items: center;
@@ -444,14 +555,17 @@ async function handleLogout() {
   background: var(--el-fill-color-light);
   border: 1px solid var(--el-border-color-light);
   border-radius: $radius-full;
-  padding: 6px 12px;
-  width: 200px;
-  transition: width $transition-base, border-color $transition-base;
+  padding: 6px 10px;
+  width: 36px;
+  overflow: hidden;
+  transition: width $transition-base, border-color $transition-base, background $transition-base;
+  cursor: pointer;
 
-  &.focused {
-    width: 280px;
+  &.expanded {
+    width: 220px;
     border-color: $color-primary;
     background: var(--el-bg-color);
+    cursor: default;
   }
 }
 
@@ -459,6 +573,7 @@ async function handleLogout() {
   color: var(--el-text-color-placeholder);
   font-size: 14px;
   flex-shrink: 0;
+  cursor: pointer;
 }
 
 .search-input {
@@ -468,15 +583,24 @@ async function handleLogout() {
   font-size: $font-sm;
   color: var(--el-text-color-primary);
   width: 100%;
+  min-width: 0;
 
   &::placeholder {
     color: var(--el-text-color-placeholder);
   }
 }
 
-// 通知
+// 通知徽章（缩小）
 .notif-badge {
   line-height: 1;
+
+  :deep(.el-badge__content) {
+    font-size: 10px;
+    height: 16px;
+    line-height: 16px;
+    padding: 0 4px;
+    min-width: 16px;
+  }
 }
 
 .notif-btn {
@@ -625,6 +749,12 @@ async function handleLogout() {
   color: var(--el-text-color-primary);
 }
 
+.notif-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .notif-loading,
 .notif-empty {
   padding: $spacing-md;
@@ -644,6 +774,7 @@ async function handleLogout() {
   gap: $spacing-sm;
   padding: 10px 12px;
   transition: background $transition-fast;
+  cursor: pointer;
 
   &.unread {
     background: rgba(99, 102, 241, 0.04);
@@ -693,7 +824,6 @@ async function handleLogout() {
     }
   }
 
-  // 移除分隔线的额外间距，确保所有选项高度一致
   .el-dropdown-menu__item--divided {
     position: relative;
     margin-top: 0;

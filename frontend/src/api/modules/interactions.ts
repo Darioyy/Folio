@@ -1,6 +1,14 @@
 import { post, get, getPaginated } from '../request'
 import type { ApiResponse, PaginatedResponse } from '@/types/api'
-import type { FileItem } from '@/types/models'
+import type { FileItem, Post } from '@/types/models'
+
+export interface PostCollectionsResult {
+  items: Post[]
+  total: number
+  page: number
+  page_size: number
+  pages: number
+}
 
 export interface InteractionStatus {
   liked: boolean
@@ -44,5 +52,23 @@ export const interactionsApi = {
    */
   getMyCollections(page = 1, pageSize = 20): Promise<PaginatedResponse<FileItem>> {
     return getPaginated('/files/me/collections', { page, limit: pageSize })
+  },
+
+  // ---- 博文互动 ----
+
+  togglePostLike(postId: number): Promise<ApiResponse<LikeResult>> {
+    return post(`/posts/${postId}/like`)
+  },
+
+  togglePostCollect(postId: number): Promise<ApiResponse<CollectResult>> {
+    return post(`/posts/${postId}/collect`)
+  },
+
+  getPostStatus(postId: number): Promise<ApiResponse<InteractionStatus>> {
+    return get(`/posts/${postId}/status`)
+  },
+
+  getMyPostCollections(page = 1, pageSize = 20): Promise<ApiResponse<PostCollectionsResult>> {
+    return get('/posts/me/collections', { page, page_size: pageSize })
   }
 }

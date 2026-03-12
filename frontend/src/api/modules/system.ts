@@ -1,5 +1,5 @@
 import { get, post, put, del } from '../request'
-import type { SystemInfo, AdminStats, SystemConfig, InviteCode, FileItem } from '@/types/models'
+import type { SystemInfo, AdminStats, SystemConfig, InviteCode, FileItem, Category } from '@/types/models'
 import type { ApiResponse, PaginatedResponse } from '@/types/api'
 
 export const systemApi = {
@@ -63,6 +63,13 @@ export const systemApi = {
    */
   deleteInviteCode(code: string): Promise<ApiResponse> {
     return del(`/system/invite-codes/${code}`)
+  },
+
+  /**
+   * 获取分类列表
+   */
+  getCategories(): Promise<ApiResponse<Category[]>> {
+    return get('/system/categories')
   },
 
 }

@@ -28,6 +28,17 @@ export interface RegisterRequest {
   nickname?: string
 }
 
+// 博文附件
+export interface PostAttachment {
+  file_id: number
+  title: string
+  file_name: string
+  file_size: number
+  mime_type?: string
+  file_category: 'image' | 'video' | 'document'
+  sort_order: number
+}
+
 // 文章相关类型
 export interface Post {
   id: number
@@ -36,12 +47,25 @@ export interface Post {
   summary?: string
   category_id?: number
   category_name?: string
+  cover_image_id?: number
+  cover_image_url?: string
   author_id: number
   author_name?: string
-  status: 'draft' | 'published'
+  author_nickname?: string
+  author_avatar?: string
+  status: 'draft' | 'published' | 'archived'
+  is_hidden?: number
+  hide_reason?: string
+  review_status?: 'none' | 'pending' | 'rejected'
+  appeal_reason?: string
   view_count: number
+  like_count: number
+  comment_count: number
+  collect_count: number
+  published_at?: string
   created_at: string
   updated_at: string
+  attachments?: PostAttachment[]
 }
 
 export interface Category {
@@ -63,7 +87,7 @@ export interface FileItem {
   file_name: string
   file_size?: number
   mime_type?: string
-  file_category: 'image' | 'video' | 'document' | 'resource'
+  file_category: 'image' | 'video' | 'document'
   visibility: 'private' | 'public'
   thumbnail_path?: string
   duration?: number
@@ -130,7 +154,6 @@ export interface AdminStats {
   files_by_category: {
     image: number
     video: number
-    resource: number
     document: number
   }
   storage_total: number
@@ -152,7 +175,7 @@ export interface SystemConfig {
 // 评论
 export interface Comment {
   id: number
-  file_id: number
+  post_id: number
   user_id: number
   parent_id: number | null
   content: string
@@ -167,7 +190,7 @@ export interface Comment {
 export interface Notification {
   id: number
   user_id: number
-  type: 'like' | 'comment' | 'reply' | 'follow'
+  type: 'like' | 'collect' | 'comment' | 'reply' | 'follow' | 'new_post' | 'admin' | 'appeal' | 'review_result'
   actor_id: number
   target_id: number | null
   extra: Record<string, any> | null
