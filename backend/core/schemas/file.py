@@ -18,3 +18,4 @@ class FileUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=200, description='文件标题')
     description: Optional[str] = Field(None, description='文件描述')
     visibility: Optional[str] = Field(None, pattern='^(private|public)$', description='可见性')
+    file_name: Optional[str] = Field(None, min_length=1, max_length=255, description='文件名（含扩展名）')

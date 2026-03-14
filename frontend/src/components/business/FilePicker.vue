@@ -38,7 +38,7 @@
             @click="enterFolder(folder)"
           >
             <div class="item-thumb folder-thumb">
-              <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#5a67d8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
               </svg>
             </div>
@@ -61,10 +61,9 @@
                 :src="getThumbnail(file.id)"
                 :alt="file.title"
                 class="thumb-img"
-                loading="lazy"
               />
               <div v-else class="thumb-icon">
-                <component :is="categoryIcon(file.file_category)" style="width:28px;height:28px;color:var(--el-text-color-placeholder)" />
+                <component :is="categoryIcon(file.file_category)" style="width:20px;height:20px;color:var(--el-text-color-placeholder)" />
               </div>
             </div>
             <div class="item-info">
@@ -93,6 +92,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { ElMessage } from 'element-plus'
 import { Document, VideoPlay, Paperclip } from '@element-plus/icons-vue'
 import { filesApi } from '@/api/modules/files'
 import { groupsApi } from '@/api/modules/groups'
@@ -238,6 +238,10 @@ function onOpen() {
 }
 
 function selectFile(file: FileItem) {
+  if (props.filter === 'image' && file.file_category !== 'image') {
+    ElMessage.warning('请选择图片文件作为封面')
+    return
+  }
   emit('select', file)
   emit('update:modelValue', false)
 }
@@ -296,8 +300,8 @@ function selectFile(file: FileItem) {
 
 .file-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: $spacing-sm;
+  grid-template-columns: repeat(5, 1fr);
+  gap: $spacing-xs;
 
   @media (max-width: 600px) {
     grid-template-columns: repeat(3, 1fr);
@@ -309,7 +313,7 @@ function selectFile(file: FileItem) {
   flex-direction: column;
   align-items: center;
   gap: $spacing-xs;
-  padding: $spacing-sm;
+  padding: $spacing-xs;
   border: 1px solid var(--el-border-color-light);
   border-radius: $radius-lg;
   cursor: pointer;
@@ -319,12 +323,12 @@ function selectFile(file: FileItem) {
 
   &:hover {
     border-color: $color-primary;
-    background: rgba(99, 102, 241, 0.04);
+    background: rgba(90, 103, 216, 0.04);
   }
 }
 
 .folder-item:hover {
-  background: rgba(99, 102, 241, 0.06);
+  background: rgba(90, 103, 216, 0.06);
 }
 
 .item-thumb {
@@ -338,7 +342,7 @@ function selectFile(file: FileItem) {
 }
 
 .folder-thumb {
-  background: rgba(99, 102, 241, 0.08);
+  background: rgba(90, 103, 216, 0.08);
 }
 
 .file-thumb {
@@ -377,7 +381,7 @@ function selectFile(file: FileItem) {
 .select-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(99, 102, 241, 0.85);
+  background: rgba(90, 103, 216, 0.85);
   display: flex;
   align-items: center;
   justify-content: center;

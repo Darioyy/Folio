@@ -4,12 +4,15 @@
 
 import os
 from flask import Blueprint, request, g, send_file, session as flask_session
+from sqlalchemy import select
 from pydantic import ValidationError
 from core.services.post_service import PostService
 from core.schemas.post import PostCreate, PostUpdate, PostListQuery, PostAttachmentAdd
 from core.utils.validators import login_required
+from core.utils.permissions import require_admin
 from core.utils.response import success_response, error_response
 from config.default import Config
+from db.session import db as db_session
 
 posts_bp = Blueprint("posts", __name__)
 
@@ -54,7 +57,7 @@ def get_my_posts():
 @login_required
 def admin_get_all_posts():
     """管理员获取所有博文列表 GET /api/v1/posts/admin/all"""
-    if not (flask_session.get('is_admin') or flask_session.get('is_root')):
+    if not require_admin(g.user_id, db_session.session):
         return error_response(code="FORBIDDEN", message="需要管理员权限", http_code=403)
 
     page = int(request.args.get("page", 1))
@@ -62,11 +65,14 @@ def admin_get_all_posts():
     username = request.args.get("username", "").strip()
     category_id = request.args.get("category_id", None, type=int)
     status = request.args.get("status", "").strip()
+    needs_review = request.args.get("needs_review") == "1"
 
     author_id = None
     if username:
         from core.models.user import User as UserModel
-        user_obj = UserModel.query.filter_by(username=username).first()
+        user_obj = db_session.session.execute(
+            select(UserModel).where(UserModel.username == username)
+        ).scalar_one_or_none()
         if not user_obj:
             return success_response({"items": [], "total": 0, "page": page, "page_size": page_size, "pages": 0})
         author_id = user_obj.id
@@ -74,10 +80,11 @@ def admin_get_all_posts():
     result = PostService.get_posts(
         page=page,
         limit=page_size,
-        status=status if status else "published",
+        status="all" if needs_review else (status if status else "published"),
         category_id=category_id,
         author_id=author_id,
         admin_view=True,
+        needs_review=needs_review,
     )
 
     pagination = result.get("pagination", {})
@@ -87,6 +94,53 @@ def admin_get_all_posts():
         "page": pagination.get("page", page),
         "page_size": pagination.get("page_size", page_size),
         "pages": pagination.get("pages", 1),
+    })
+
+
+@posts_bp.route("/admin/review-count", methods=["GET"])
+@login_required
+def admin_review_count():
+    """GET /api/v1/posts/admin/review-count — 管理员获取待处理审核数量"""
+    from sqlalchemy import func as _func
+    if not require_admin(g.user_id, db_session.session):
+        return error_response('FORBIDDEN', '无权操作', 403)
+
+    from core.models.post import Post as _Post
+    from core.utils.permissions import require_root
+
+    try:
+        pending_appeals = db_session.session.execute(
+            select(_func.count(_Post.id)).where(_Post.review_status == 'pending')
+        ).scalar() or 0
+    except Exception:
+        pending_appeals = 0
+
+    try:
+        unprocessed_reports = db_session.session.execute(
+            select(_func.count(_Post.id)).where(
+                _Post.report_count > 0,
+                _Post.is_hidden == 0,
+                _Post.review_status == 'none',
+            )
+        ).scalar() or 0
+    except Exception:
+        unprocessed_reports = 0
+
+    pending_feedback = 0
+    if require_root(g.user_id, db_session.session):
+        try:
+            from core.models.feedback import Feedback as _Feedback
+            pending_feedback = db_session.session.execute(
+                select(_func.count(_Feedback.id)).where(_Feedback.status == 'pending')
+            ).scalar() or 0
+        except Exception:
+            pending_feedback = 0
+
+    return success_response({
+        'total': pending_appeals + unprocessed_reports + pending_feedback,
+        'pending_appeals': pending_appeals,
+        'unprocessed_reports': unprocessed_reports,
+        'pending_feedback': pending_feedback,
     })
 
 
@@ -261,12 +315,19 @@ def set_post_visibility(post_id):
     from core.models.notification import Notification as NotifModel
     from db.session import db as db_session
 
-    if not (flask_session.get('is_admin') or flask_session.get('is_root')):
+    if not require_admin(g.user_id, db_session.session):
         return error_response('FORBIDDEN', '无权操作', 403)
 
     post = db_session.session.get(Post, post_id)
     if not post or post.status != 'published':
         return error_response('NOT_FOUND', '博文不存在', 404)
+
+    # Admin 不能操作 Root 用户的博文
+    from core.models.user import User as UserModel
+    operator = db_session.session.get(UserModel, g.user_id)
+    author = db_session.session.get(UserModel, post.author_id)
+    if operator and author and author.is_root and not operator.is_root:
+        return error_response('FORBIDDEN', '无权操作 Root 用户的博文', 403)
 
     data = request.get_json() or {}
     hidden = bool(data.get('hidden', False))
@@ -301,6 +362,238 @@ def set_post_visibility(post_id):
 
 
 # ============================================================
+# 置顶管理（Root 专属）
+# ============================================================
+
+@posts_bp.route("/<int:post_id>/pin", methods=["PUT"])
+@login_required
+def toggle_pin(post_id):
+    """PUT /api/v1/posts/:id/pin — Root 设置/取消博文置顶"""
+    from core.models.post import Post
+    from core.utils.permissions import require_root
+    from db.session import db as db_session
+
+    if not require_root(g.user_id, db_session.session):
+        return error_response('FORBIDDEN', '只有 Root 用户可以置顶博文', 403)
+
+    post = db_session.session.get(Post, post_id)
+    if not post or post.status != 'published':
+        return error_response('NOT_FOUND', '博文不存在或未发布', 404)
+
+    data = request.get_json() or {}
+    pinned = bool(data.get('pinned', False))
+    was_pinned = bool(post.is_pinned)
+    post.is_pinned = 1 if pinned else 0
+    db_session.session.commit()
+
+    # 置顶时通知所有成员（除发布者）
+    if pinned and not was_pinned:
+        try:
+            from core.models.user import User as UserModel
+            from core.models.notification import Notification as NotifModel
+            from sqlalchemy import select as _sel
+            users = db_session.session.execute(
+                _sel(UserModel).where(UserModel.id != post.author_id)
+            ).scalars().all()
+            for u in users:
+                db_session.session.add(NotifModel(
+                    user_id=u.id, type='pinned', actor_id=g.user_id,
+                    target_id=post_id, extra={'post_title': post.title}
+                ))
+            db_session.session.commit()
+        except Exception:
+            pass
+
+    return success_response({'is_pinned': post.is_pinned}, message='已置顶' if pinned else '已取消置顶')
+
+
+# ============================================================
+# 举报系统
+# ============================================================
+
+@posts_bp.route("/<int:post_id>/report", methods=["POST"])
+@login_required
+def report_post(post_id):
+    """POST /api/v1/posts/:id/report — 举报博文"""
+    from core.models.post import Post
+
+    post = db_session.session.execute(
+        select(Post).where(Post.id == post_id, Post.status == 'published', Post.is_hidden == 0)
+    ).scalar_one_or_none()
+    if not post:
+        return error_response('NOT_FOUND', '博文不存在', 404)
+    if post.author_id == g.user_id:
+        return error_response('BAD_REQUEST', '不能举报自己的博文', 400)
+
+    data = request.get_json() or {}
+    reason = str(data.get('reason', '')).strip()[:500]
+    if not reason:
+        return error_response('BAD_REQUEST', '请填写举报原因', 400)
+
+    # 单独提交举报计数（用原子 SQL，避免列不存在时影响后续通知）
+    try:
+        from sqlalchemy import text as _text
+        db_session.session.execute(
+            _text(
+                "UPDATE posts"
+                " SET report_count = COALESCE(report_count, 0) + 1,"
+                "     review_status = CASE WHEN review_status = 'dismissed' THEN 'none' ELSE review_status END"
+                " WHERE id = :id"
+            ),
+            {"id": post_id}
+        )
+        db_session.session.commit()
+    except Exception:
+        db_session.session.rollback()
+
+    # 管理员通过头像红点（review-count 轮询）感知新举报，不再发通知消息
+    return success_response(message='举报已提交，管理员将尽快处理')
+
+
+# ============================================================
+# 举报处置：查询举报者 / 举报有效 / 举报无效
+# ============================================================
+
+@posts_bp.route("/<int:post_id>/reporters", methods=["GET"])
+@login_required
+def get_post_reporters(post_id):
+    """GET /api/v1/posts/:id/reporters — 管理员查询举报者列表"""
+    if not require_admin(g.user_id, db_session.session):
+        return error_response('FORBIDDEN', '无权操作', 403)
+    from core.models.notification import Notification as NotifModel
+    from core.models.user import User as UserModel
+    try:
+        rows = db_session.session.execute(
+            select(NotifModel).where(
+                NotifModel.type == 'report',
+                NotifModel.target_id == post_id,
+            ).order_by(NotifModel.created_at.desc()).limit(20)
+        ).scalars().all()
+        seen = set()
+        result = []
+        for r in rows:
+            if r.actor_id in seen:
+                continue
+            seen.add(r.actor_id)
+            actor = db_session.session.get(UserModel, r.actor_id)
+            result.append({
+                'user_id': r.actor_id,
+                'username': actor.username if actor else '已注销',
+                'nickname': actor.nickname if actor else None,
+                'reason': (r.extra or {}).get('reason', ''),
+                'reported_at': r.created_at.isoformat() if r.created_at else None,
+            })
+        return success_response(result)
+    except Exception as e:
+        return success_response([])  # 降级：表不存在时返回空列表
+
+
+@posts_bp.route("/<int:post_id>/report-valid", methods=["PUT"])
+@login_required
+def report_valid(post_id):
+    """PUT /api/v1/posts/:id/report-valid — 举报有效：隐藏博文并通知举报者与作者"""
+    from core.models.post import Post
+    from core.models.notification import Notification as NotifModel
+    from core.models.user import User as UserModel
+    if not require_admin(g.user_id, db_session.session):
+        return error_response('FORBIDDEN', '无权操作', 403)
+    post = db_session.session.get(Post, post_id)
+    if not post:
+        return error_response('NOT_FOUND', '博文不存在', 404)
+    # Admin 不能操作 Root 用户的博文
+    operator = db_session.session.get(UserModel, g.user_id)
+    author = db_session.session.get(UserModel, post.author_id)
+    if operator and author and author.is_root and not operator.is_root:
+        return error_response('FORBIDDEN', '无权操作 Root 用户的博文', 403)
+    data = request.get_json() or {}
+    reason = str(data.get('reason', '')).strip() or '违反社区规范'
+    post.is_hidden = 1
+    post.hide_reason = reason
+    post.review_status = 'none'
+    post.appeal_reason = None
+    post_title = post.title
+    author_id = post.author_id
+    db_session.session.commit()
+    # 通知作者（独立提交，避免影响举报者通知）
+    try:
+        if author_id != g.user_id:
+            db_session.session.add(NotifModel(
+                user_id=author_id, type='admin', actor_id=g.user_id,
+                target_id=post_id, extra={'action': 'hide', 'reason': reason, 'post_title': post_title}
+            ))
+            db_session.session.commit()
+    except Exception:
+        db_session.session.rollback()
+    # 查最近举报者并通知（独立提交）
+    try:
+        db_session.session.expire_all()
+        notif_rows = db_session.session.execute(
+            select(NotifModel).where(
+                NotifModel.type == 'report', NotifModel.target_id == post_id
+            ).order_by(NotifModel.created_at.desc()).limit(10)
+        ).scalars().all()
+        seen = set()
+        for r in notif_rows:
+            if r.actor_id in seen or r.actor_id == author_id:
+                continue
+            seen.add(r.actor_id)
+            db_session.session.add(NotifModel(
+                user_id=r.actor_id, type='admin', actor_id=g.user_id,
+                target_id=post_id,
+                extra={'action': 'report_valid', 'post_title': post_title}
+            ))
+        db_session.session.commit()
+    except Exception:
+        db_session.session.rollback()
+    return success_response({'is_hidden': 1}, message='博文已隐藏，举报处理完毕')
+
+
+@posts_bp.route("/<int:post_id>/report-invalid", methods=["PUT"])
+@login_required
+def report_invalid(post_id):
+    """PUT /api/v1/posts/:id/report-invalid — 举报无效：驳回举报并感谢举报者"""
+    from core.models.post import Post
+    from core.models.notification import Notification as NotifModel
+    from sqlalchemy import text as _text
+    if not require_admin(g.user_id, db_session.session):
+        return error_response('FORBIDDEN', '无权操作', 403)
+    post = db_session.session.get(Post, post_id)
+    if not post:
+        return error_response('NOT_FOUND', '博文不存在', 404)
+    # 清零举报计数并标记已驳回（便于历史记录查询）
+    try:
+        db_session.session.execute(
+            _text("UPDATE posts SET report_count = 0, review_status = 'dismissed' WHERE id = :id"),
+            {"id": post_id}
+        )
+        db_session.session.commit()
+    except Exception:
+        db_session.session.rollback()
+    # 通知举报者
+    try:
+        db_session.session.expire_all()
+        notif_rows = db_session.session.execute(
+            select(NotifModel).where(
+                NotifModel.type == 'report', NotifModel.target_id == post_id
+            ).order_by(NotifModel.created_at.desc()).limit(10)
+        ).scalars().all()
+        seen = set()
+        for r in notif_rows:
+            if r.actor_id in seen:
+                continue
+            seen.add(r.actor_id)
+            db_session.session.add(NotifModel(
+                user_id=r.actor_id, type='admin', actor_id=g.user_id,
+                target_id=post_id,
+                extra={'action': 'report_invalid', 'post_title': post.title}
+            ))
+        db_session.session.commit()
+    except Exception:
+        db_session.session.rollback()
+    return success_response({'report_count': 0}, message='已驳回举报')
+
+
+# ============================================================
 # 申诉系统（作者申诉 + 管理员审核）
 # ============================================================
 
@@ -309,7 +602,6 @@ def set_post_visibility(post_id):
 def appeal_post(post_id):
     """POST /api/v1/posts/:id/appeal — 作者提交申诉"""
     from core.models.post import Post
-    from core.models.notification import Notification as NotifModel
     from db.session import db as db_session
 
     post = db_session.session.get(Post, post_id)
@@ -331,26 +623,7 @@ def appeal_post(post_id):
     post.appeal_reason = appeal_reason
     db_session.session.commit()
 
-    # 通知所有管理员/root（取第一个 admin）
-    try:
-        from core.models.user import User as UserModel
-        admins = UserModel.query.filter(
-            (UserModel.is_admin == 1) | (UserModel.is_root == 1)
-        ).all()
-        for admin in admins:
-            if admin.id != g.user_id:
-                notif = NotifModel(
-                    user_id=admin.id,
-                    type='appeal',
-                    actor_id=g.user_id,
-                    target_id=post_id,
-                    extra={'post_title': post.title, 'appeal_reason': appeal_reason}
-                )
-                db_session.session.add(notif)
-        db_session.session.commit()
-    except Exception:
-        pass
-
+    # 管理员通过头像红点（review-count 轮询）感知新申诉，不再发通知消息
     return success_response({'review_status': post.review_status}, message='申诉已提交，等待审核')
 
 
@@ -362,7 +635,7 @@ def review_appeal(post_id):
     from core.models.notification import Notification as NotifModel
     from db.session import db as db_session
 
-    if not (flask_session.get('is_admin') or flask_session.get('is_root')):
+    if not require_admin(g.user_id, db_session.session):
         return error_response('FORBIDDEN', '无权操作', 403)
 
     post = db_session.session.get(Post, post_id)
@@ -377,7 +650,8 @@ def review_appeal(post_id):
 
     if action == 'approve':
         post.is_hidden = 0
-        post.review_status = 'none'
+        post.review_status = 'approved'
+        post.report_count = 0
         post.hide_reason = None
         post.appeal_reason = None
         db_session.session.commit()
@@ -424,21 +698,37 @@ def download_attachment(post_id, file_id):
     try:
         from core.models.post import Post
 
-        post = Post.query.get(post_id)
-        if not post:
-            return error_response(code="NOT_FOUND", message="文章不存在", http_code=404)
+        current_user_id = flask_session.get('user_id')
 
-        if post.status != 'published':
-            current_user_id = flask_session.get('user_id')
-            if not current_user_id or current_user_id != post.author_id:
-                return error_response(code="FORBIDDEN", message="无权访问", http_code=403)
+        # S-2: SQL层过滤，优先尝试公开博文
+        public_post = db_session.session.execute(
+            select(Post).where(
+                Post.id == post_id,
+                Post.status == 'published',
+                Post.is_hidden == 0,
+            )
+        ).scalar_one_or_none()
+
+        if not public_post:
+            # 非公开博文：仅允许作者或管理员访问
+            post = db_session.session.get(Post, post_id)
+            if not post:
+                return error_response(code="NOT_FOUND", message="文章不存在", http_code=404)
+            is_author = current_user_id and current_user_id == post.author_id
+            is_admin = current_user_id and require_admin(current_user_id, db_session.session)
+            if not is_author and not is_admin:
+                return error_response(code="NOT_FOUND", message="文章不存在", http_code=404)
 
         f = PostService.get_attachment_file(post_id, file_id)
         if not f:
             return error_response(code="NOT_FOUND", message="附件不存在", http_code=404)
 
-        uploads_dir = os.path.abspath(Config.UPLOAD_FOLDER)
-        file_abs = os.path.join(uploads_dir, f.file_path)
+        # S-7: 路径边界校验，防止路径遍历
+        uploads_dir = os.path.realpath(Config.UPLOAD_FOLDER)
+        file_abs = os.path.realpath(os.path.join(uploads_dir, f.file_path))
+        if not file_abs.startswith(uploads_dir + os.sep):
+            return error_response(code="FORBIDDEN", message="非法的文件路径", http_code=403)
+
         if not os.path.exists(file_abs):
             return error_response(code="NOT_FOUND", message="文件不存在", http_code=404)
 

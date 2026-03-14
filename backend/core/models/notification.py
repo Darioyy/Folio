@@ -15,6 +15,7 @@ class Notification(db.Model):
     user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, comment='接收者用户ID')
     type = Column(
         Enum('like', 'collect', 'comment', 'reply', 'follow', 'new_post', 'admin', 'appeal', 'review_result',
+             'report', 'pinned',
              name='notification_type_enum'),
         nullable=False, comment='通知类型'
     )

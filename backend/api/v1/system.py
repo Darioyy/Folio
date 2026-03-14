@@ -1,7 +1,9 @@
 """
 系统 API 路由 - 三层架构版本
 """
-from flask import Blueprint, request, g
+import os
+from flask import Blueprint, request, g, send_file
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from core.services.system_service import SystemService
 from core.services.file_service import FileService
@@ -13,6 +15,48 @@ from db.session import db as db_session
 from core.models.category import Category
 
 system_bp = Blueprint("system", __name__)
+
+
+@system_bp.route("/site-info", methods=["GET"])
+def get_site_info():
+    """GET /api/v1/system/site-info — 公开：站点介绍和联系方式"""
+    config = SystemService.load_config()
+    return success_response({
+        "site_bio": config.get("site_bio", ""),
+        "site_contact": config.get("site_contact", ""),
+    })
+
+
+@system_bp.route("/site-info", methods=["PUT"])
+@login_required
+@root_required
+def update_site_info():
+    """PUT /api/v1/system/site-info — Root 更新站点介绍和联系方式"""
+    data = request.get_json() or {}
+    site_bio = str(data.get("site_bio", "")).strip()[:500]
+    site_contact = str(data.get("site_contact", "")).strip()[:200]
+    config = SystemService.load_config()
+    config["site_bio"] = site_bio
+    config["site_contact"] = site_contact
+    SystemService.save_config(config)
+    return success_response({"site_bio": site_bio, "site_contact": site_contact}, message="已保存")
+
+
+@system_bp.route("/owner", methods=["GET"])
+def get_site_owner():
+    """GET /api/v1/system/owner — 公开：站主（Root用户）公开信息"""
+    root = db_session.session.execute(
+        select(User).where(User.is_root == 1).limit(1)
+    ).scalar_one_or_none()
+    if not root:
+        return success_response(None)
+    return success_response({
+        "id": root.id,
+        "username": root.username,
+        "nickname": root.nickname,
+        "avatar": bool(root.avatar),
+        "signature": root.signature,
+    })
 
 
 @system_bp.route("/info", methods=["GET"])
@@ -120,7 +164,8 @@ def update_config():
     allowed_keys = {
         'register_enabled', 'invite_code_required', 'captcha_enabled',
         'storage_quota_root', 'storage_quota_admin', 'storage_quota_user',
-        'max_file_size', 'allowed_extensions'
+        'max_file_size', 'allowed_extensions',
+        'site_bio', 'site_contact',
     }
     invalid = set(data.keys()) - allowed_keys
     if invalid:
@@ -230,6 +275,7 @@ def create_category():
     """
     data = request.get_json()
     name = data.get("name", "").strip()
+    description = str(data.get("description", "")).strip()[:500] or None
 
     if not name:
         return error_response("INVALID_PARAMS", "分类名称不能为空", 400)
@@ -237,7 +283,7 @@ def create_category():
         return error_response("INVALID_PARAMS", "分类名称最多100个字符", 400)
 
     try:
-        category = Category(name=name)
+        category = Category(name=name, description=description)
         db_session.session.add(category)
         db_session.session.commit()
         db_session.session.refresh(category)
@@ -262,6 +308,7 @@ def update_category(category_id: int):
 
     data = request.get_json()
     name = data.get("name", "").strip()
+    description = str(data.get("description", "")).strip()[:500] or None
 
     if not name:
         return error_response("INVALID_PARAMS", "分类名称不能为空", 400)
@@ -270,6 +317,7 @@ def update_category(category_id: int):
 
     try:
         category.name = name
+        category.description = description
         db_session.session.commit()
         db_session.session.refresh(category)
         return success_response(category.to_dict(), "分类更新成功")
@@ -305,3 +353,62 @@ def delete_category(category_id: int):
         return success_response(message="分类删除成功")
     except Exception as e:
         return error_response("SYSTEM_ERROR", f"删除分类失败: {str(e)}", 500)
+
+
+@system_bp.route("/categories/<int:category_id>/avatar", methods=["POST"])
+@login_required
+@admin_required
+def upload_category_avatar(category_id: int):
+    """POST /api/v1/system/categories/:id/avatar — 上传专栏头像"""
+    from config.default import Config
+    import uuid
+
+    category = Category.query.get(category_id)
+    if not category:
+        return error_response("NOT_FOUND", "专栏不存在", 404)
+
+    if 'file' not in request.files:
+        return error_response("BAD_REQUEST", "未上传文件", 400)
+    file = request.files['file']
+    if not file.filename:
+        return error_response("BAD_REQUEST", "未选择文件", 400)
+
+    ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+    if ext not in {'jpg', 'jpeg', 'png', 'gif', 'webp'}:
+        return error_response("BAD_REQUEST", "只支持图片文件", 400)
+
+    save_dir = os.path.join(Config.UPLOAD_FOLDER, 'category_avatars')
+    os.makedirs(save_dir, exist_ok=True)
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    file.save(os.path.join(save_dir, filename))
+
+    if category.avatar_path:
+        old = os.path.join(Config.UPLOAD_FOLDER, category.avatar_path)
+        if os.path.exists(old):
+            os.remove(old)
+
+    category.avatar_path = f"category_avatars/{filename}"
+    db_session.session.commit()
+    return success_response(
+        {"avatar_url": f"/api/v1/system/categories/{category_id}/avatar/view"},
+        message="头像上传成功"
+    )
+
+
+@system_bp.route("/categories/<int:category_id>/avatar/view", methods=["GET"])
+def view_category_avatar(category_id: int):
+    """GET /api/v1/system/categories/:id/avatar/view — 查看专栏头像"""
+    from config.default import Config
+
+    category = Category.query.get(category_id)
+    if not category or not category.avatar_path:
+        return error_response("NOT_FOUND", "暂无头像", 404)
+
+    uploads_dir = os.path.realpath(Config.UPLOAD_FOLDER)
+    abs_path = os.path.realpath(os.path.join(Config.UPLOAD_FOLDER, category.avatar_path))
+    if not abs_path.startswith(uploads_dir + os.sep):
+        return error_response("FORBIDDEN", "非法路径", 403)
+    if not os.path.exists(abs_path):
+        return error_response("NOT_FOUND", "文件不存在", 404)
+
+    return send_file(abs_path)

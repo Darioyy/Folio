@@ -2,7 +2,40 @@ import { get, post, put, del } from '../request'
 import type { SystemInfo, AdminStats, SystemConfig, InviteCode, FileItem, Category } from '@/types/models'
 import type { ApiResponse, PaginatedResponse } from '@/types/api'
 
+export interface SiteInfo {
+  site_bio: string
+  site_contact: string
+}
+
+export interface SiteOwner {
+  id: number
+  username: string
+  nickname: string | null
+  avatar: boolean
+  signature: string | null
+}
+
 export const systemApi = {
+  /**
+   * 获取站点介绍/联系方式（公开）
+   */
+  getSiteInfo(): Promise<ApiResponse<SiteInfo>> {
+    return get('/system/site-info')
+  },
+
+  /**
+   * 更新站点介绍/联系方式（Root）
+   */
+  updateSiteInfo(data: SiteInfo): Promise<ApiResponse<SiteInfo>> {
+    return put('/system/site-info', data)
+  },
+
+  /**
+   * 获取站主公开信息（公开）
+   */
+  getOwner(): Promise<ApiResponse<SiteOwner | null>> {
+    return get('/system/owner')
+  },
   /**
    * 获取系统信息
    */

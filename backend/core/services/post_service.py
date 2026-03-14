@@ -3,7 +3,8 @@
 """
 
 from datetime import datetime
-from sqlalchemy import or_, select, func
+from sqlalchemy import or_, and_, select, func, update, case
+from sqlalchemy.orm import joinedload
 from core.models.post import Post
 from core.models.post_attachment import PostAttachment
 from core.models.category import Category
@@ -25,9 +26,10 @@ class PostService:
         author_id: int = None,
         sort: str = "latest",
         admin_view: bool = False,
+        needs_review: bool = False,
     ) -> dict:
         """获取文章列表（分页、筛选、搜索、排序）"""
-        query = Post.query
+        query = Post.query.options(joinedload(Post.author), joinedload(Post.category))
 
         if status and status != "all":
             query = query.filter(Post.status == status)
@@ -42,16 +44,43 @@ class PostService:
         if author_id:
             query = query.filter(Post.author_id == author_id)
 
+        if needs_review:
+            query = query.filter(
+                or_(Post.is_hidden == 1, Post.review_status != 'none', Post.report_count > 0)
+            )
+
         if search:
+            # P2: 截断超长搜索词，防止全表扫描
+            search = search[:100]
             search_pattern = f"%{search}%"
             query = query.filter(
                 or_(Post.title.like(search_pattern), Post.content.like(search_pattern))
             )
 
-        if sort == "hot":
-            query = query.order_by((Post.like_count + Post.view_count).desc())
+        if needs_review:
+            # 审核视图：未处理举报(0) → 申诉待审(1) → 历史记录(2)，组内按举报次数倒序
+            urgency = case(
+                (and_(Post.report_count > 0, Post.is_hidden == 0, Post.review_status == 'none'), 0),
+                (Post.review_status == 'pending', 1),
+                else_=2
+            )
+            query = query.order_by(urgency, Post.report_count.desc(), Post.created_at.desc())
+        elif sort == "hot":
+            # 加权热门算法：点赞*2 + 收藏*3 + 评论*1.5 + 浏览*0.1，近7天内发布的帖子有1.5x加成
+            # 置顶帖子始终优先
+            recency_bonus = case(
+                (func.datediff(func.now(), Post.published_at) <= 7, 1.5),
+                else_=1.0
+            )
+            hot_score = (
+                Post.like_count * 2.0 +
+                Post.collect_count * 3.0 +
+                Post.comment_count * 1.5 +
+                Post.view_count * 0.1
+            ) * recency_bonus
+            query = query.order_by(Post.is_pinned.desc(), hot_score.desc())
         else:
-            query = query.order_by(Post.created_at.desc())
+            query = query.order_by(Post.is_pinned.desc(), Post.created_at.desc())
 
         total = query.count()
         offset = (page - 1) * limit
@@ -72,7 +101,7 @@ class PostService:
     @staticmethod
     def get_my_posts(author_id: int, page: int = 1, page_size: int = 20, status: str = "all") -> dict:
         """获取当前用户自己的博文列表（支持 status 筛选）"""
-        query = Post.query.filter(Post.author_id == author_id)
+        query = Post.query.options(joinedload(Post.category)).filter(Post.author_id == author_id)
 
         if status and status != "all":
             query = query.filter(Post.status == status)
@@ -102,7 +131,9 @@ class PostService:
         if not user:
             raise ValueError("用户不存在")
 
-        query = Post.query.filter(
+        query = Post.query.options(
+            joinedload(Post.author), joinedload(Post.category)
+        ).filter(
             Post.author_id == user.id,
             Post.status == "published",
             Post.is_hidden == 0
@@ -122,7 +153,7 @@ class PostService:
     @staticmethod
     def get_post_by_id(post_id: int, increment_view: bool = True, viewer_key: str = None) -> dict:
         """获取文章详情"""
-        post = Post.query.get(post_id)
+        post = db_session.session.get(Post, post_id)
         if not post:
             raise ValueError("文章不存在")
 
@@ -133,21 +164,42 @@ class PostService:
                     from core.models.post_view import PostView
                     from datetime import date
                     today = date.today()
-                    existing = PostView.query.filter_by(
-                        post_id=post_id, viewer_key=viewer_key, viewed_date=today
-                    ).first()
+                    existing = db_session.session.execute(
+                        select(PostView).where(
+                            PostView.post_id == post_id,
+                            PostView.viewer_key == viewer_key,
+                            PostView.viewed_date == today,
+                        )
+                    ).scalar_one_or_none()
                     if not existing:
                         pv = PostView(post_id=post_id, viewer_key=viewer_key, viewed_date=today)
                         db_session.session.add(pv)
-                        post.view_count += 1
+                        # P2: 原子 SQL 更新，防并发竞争
+                        db_session.session.execute(
+                            update(Post).where(Post.id == post_id).values(
+                                view_count=Post.view_count + 1
+                            )
+                        )
                         db_session.session.commit()
+                        db_session.session.refresh(post)
                 except Exception:
-                    # 表不存在时降级到直接计数
-                    post.view_count += 1
+                    # 表不存在时降级到原子更新
+                    db_session.session.execute(
+                        update(Post).where(Post.id == post_id).values(
+                            view_count=Post.view_count + 1
+                        )
+                    )
                     db_session.session.commit()
+                    db_session.session.refresh(post)
             else:
-                post.view_count += 1
+                # P2: 原子 SQL 更新，防并发竞争
+                db_session.session.execute(
+                    update(Post).where(Post.id == post_id).values(
+                        view_count=Post.view_count + 1
+                    )
+                )
                 db_session.session.commit()
+                db_session.session.refresh(post)
 
         return post.to_dict(include_category=True, include_author=True, include_attachments=True)
 
@@ -162,7 +214,9 @@ class PostService:
         if not following_ids:
             return {"items": [], "total": 0, "page": page, "page_size": page_size, "pages": 0}
 
-        query = Post.query.filter(
+        query = Post.query.options(
+            joinedload(Post.author), joinedload(Post.category)
+        ).filter(
             Post.author_id.in_(following_ids),
             Post.status == "published",
             Post.is_hidden == 0
@@ -191,11 +245,11 @@ class PostService:
     ) -> dict:
         """创建文章"""
         if category_id:
-            if not Category.query.get(category_id):
+            if not db_session.session.get(Category, category_id):
                 raise ValueError("分类不存在")
 
         if cover_image_id:
-            f = File.query.get(cover_image_id)
+            f = db_session.session.get(File, cover_image_id)
             if not f or f.user_id != author_id:
                 raise ValueError("封面图文件不存在或不属于您")
 
@@ -223,7 +277,7 @@ class PostService:
     @staticmethod
     def update_post(post_id: int, operator_id: int, **kwargs) -> dict:
         """更新文章"""
-        post = Post.query.get(post_id)
+        post = db_session.session.get(Post, post_id)
         if not post:
             raise ValueError("文章不存在")
 
@@ -241,12 +295,12 @@ class PostService:
         for field in updatable_fields:
             if field in kwargs and kwargs[field] is not None:
                 if field == "category_id" and kwargs[field]:
-                    if not Category.query.get(kwargs[field]):
+                    if not db_session.session.get(Category, kwargs[field]):
                         raise ValueError("分类不存在")
                 if field == "status" and kwargs[field] not in ["draft", "published", "archived"]:
                     raise ValueError("无效的状态值")
                 if field == "cover_image_id" and kwargs[field]:
-                    f = File.query.get(kwargs[field])
+                    f = db_session.session.get(File, kwargs[field])
                     if not f or f.user_id != post.author_id:
                         raise ValueError("封面图文件不存在或不属于作者")
                 setattr(post, field, kwargs[field])
@@ -257,7 +311,7 @@ class PostService:
     @staticmethod
     def publish_post(post_id: int, operator_id: int) -> dict:
         """发布博文（仅作者）"""
-        post = Post.query.get(post_id)
+        post = db_session.session.get(Post, post_id)
         if not post:
             raise ValueError("文章不存在")
 
@@ -294,7 +348,7 @@ class PostService:
     @staticmethod
     def delete_post(post_id: int, operator_id: int) -> None:
         """删除文章"""
-        post = Post.query.get(post_id)
+        post = db_session.session.get(Post, post_id)
         if not post:
             raise ValueError("文章不存在")
 
@@ -316,13 +370,13 @@ class PostService:
     @staticmethod
     def add_attachment(post_id: int, file_id: int, operator_id: int) -> dict:
         """添加附件（博文和文件都必须属于 operator）"""
-        post = Post.query.get(post_id)
+        post = db_session.session.get(Post, post_id)
         if not post:
             raise ValueError("文章不存在")
         if post.author_id != operator_id:
             raise PermissionError("只有作者可以管理附件")
 
-        f = File.query.get(file_id)
+        f = db_session.session.get(File, file_id)
         if not f:
             raise ValueError("文件不存在")
         if f.user_id != operator_id:
@@ -352,7 +406,7 @@ class PostService:
     @staticmethod
     def remove_attachment(post_id: int, file_id: int, operator_id: int) -> None:
         """移除附件"""
-        post = Post.query.get(post_id)
+        post = db_session.session.get(Post, post_id)
         if not post:
             raise ValueError("文章不存在")
         if post.author_id != operator_id:
@@ -386,7 +440,7 @@ class PostService:
     @staticmethod
     def get_attachments(post_id: int) -> list:
         """获取博文附件列表"""
-        post = Post.query.get(post_id)
+        post = db_session.session.get(Post, post_id)
         if not post:
             raise ValueError("文章不存在")
         return [pa.to_dict() for pa in (post.attachments or [])]

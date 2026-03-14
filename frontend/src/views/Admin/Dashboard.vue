@@ -40,17 +40,15 @@
       <div class="category-list">
         <div class="category-item" v-for="item in categoryItems" :key="item.label">
           <div class="category-header">
-            <span class="category-label">
-              <el-tag :type="item.tagType" size="small">{{ item.label }}</el-tag>
+            <span class="category-dot-label">
+              <span class="cat-dot" :style="{ background: item.color }"></span>
+              <span class="category-label">{{ item.label }}</span>
             </span>
             <span class="category-count">{{ item.count }}</span>
           </div>
-          <el-progress
-            :percentage="getPercentage(item.count)"
-            :color="item.color"
-            :stroke-width="8"
-            :show-text="false"
-          />
+          <div class="category-bar">
+            <div class="category-fill" :style="{ width: getPercentage(item.count) + '%', background: item.color }"></div>
+          </div>
         </div>
       </div>
     </el-card>
@@ -71,10 +69,10 @@ const categoryItems = computed(() => {
   if (!stats.value) return []
   const cat = stats.value.files_by_category
   return [
-    { label: '图片', count: cat.image, color: '#6366f1', tagType: 'primary' },
-    { label: '视频', count: cat.video, color: '#8b5cf6', tagType: 'warning' },
-    { label: '资源', count: cat.resource, color: '#10b981', tagType: 'success' },
-    { label: '文档', count: cat.document, color: '#f59e0b', tagType: 'info' },
+    { label: '图片', count: cat.image, color: '#5a67d8' },
+    { label: '视频', count: cat.video, color: '#8b5cf6' },
+    { label: '资源', count: cat.resource, color: '#10b981' },
+    { label: '文档', count: cat.document, color: '#f59e0b' },
   ]
 })
 
@@ -122,41 +120,42 @@ onMounted(loadStats)
 }
 
 .stat-card {
-  background: var(--el-bg-color);
-  border: 1px solid var(--el-border-color-light);
-  border-radius: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: $radius-lg;
   padding: 20px;
   display: flex;
   align-items: center;
   gap: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 
   .stat-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
+    width: 44px;
+    height: 44px;
+    border-radius: $radius-md;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 22px;
+    font-size: 20px;
+    flex-shrink: 0;
 
-    &.users    { background: rgba(99, 102, 241, 0.12); color: #6366f1; }
-    &.files    { background: rgba(139, 92, 246, 0.12); color: #8b5cf6; }
-    &.storage  { background: rgba(16, 185, 129, 0.12); color: #10b981; }
-    &.new-users { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
+    &.users    { background: rgba(90, 103, 216, 0.10); color: #5a67d8; }
+    &.files    { background: rgba(139, 92, 246, 0.10); color: #8b5cf6; }
+    &.storage  { background: rgba(16, 185, 129, 0.10); color: #10b981; }
+    &.new-users { background: rgba(245, 158, 11, 0.10); color: #f59e0b; }
   }
 
   .stat-info {
+    min-width: 0;
     .stat-value {
-      font-size: 26px;
+      font-size: 24px;
       font-weight: 700;
       line-height: 1.2;
-      color: var(--el-text-color-primary);
+      color: var(--color-text-primary);
     }
     .stat-label {
-      font-size: 13px;
-      color: var(--el-text-color-secondary);
-      margin-top: 2px;
+      font-size: 12px;
+      color: var(--color-text-muted);
+      margin-top: 3px;
     }
   }
 }
@@ -164,14 +163,16 @@ onMounted(loadStats)
 .category-card {
   :deep(.el-card__header) {
     font-weight: 600;
-    font-size: 15px;
+    font-size: $font-sm;
+    color: var(--color-text-primary);
   }
 }
 
 .category-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
+  padding: 16px 20px;
 }
 
 .category-item {
@@ -182,10 +183,43 @@ onMounted(loadStats)
     margin-bottom: 6px;
 
     .category-count {
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
-      color: var(--el-text-color-primary);
+      color: var(--color-text-primary);
+      font-variant-numeric: tabular-nums;
     }
+  }
+}
+
+.category-dot-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+
+  .cat-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .category-label {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+  }
+}
+
+.category-bar {
+  height: 6px;
+  background: var(--color-surface-raised);
+  border-radius: $radius-sm;
+  overflow: hidden;
+  border: 1px solid var(--color-border-subtle);
+
+  .category-fill {
+    height: 100%;
+    border-radius: $radius-sm;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 </style>

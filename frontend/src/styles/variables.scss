@@ -1,14 +1,14 @@
-// VaultShare 全局样式变量
+// Folio 全局样式变量
 
 // 颜色系统
-$color-primary: #6366f1;      // 靛蓝
-$color-primary-light: #818cf8;
-$color-primary-dark: #4f46e5;
+$color-primary: #5a67d8;       // 冷靛蓝（线性极简主义）
+$color-primary-light: #7c85e0;
+$color-primary-dark: #4a56c5;
 
-$color-secondary: #8b5cf6;    // 紫色
-$color-success: #10b981;      // 绿色
-$color-warning: #f59e0b;      // 橙色
-$color-danger: #ef4444;       // 红色
+$color-secondary: #8b5cf6;
+$color-success: #10b981;
+$color-warning: #f59e0b;
+$color-danger: #ef4444;
 
 // 中性色
 $color-gray-50: #f9fafb;
@@ -22,13 +22,13 @@ $color-gray-700: #374151;
 $color-gray-800: #1f2937;
 $color-gray-900: #111827;
 
-// 暗黑模式颜色
-$dark-bg-primary: #0f172a;
-$dark-bg-secondary: #1e293b;
-$dark-bg-tertiary: #334155;
-$dark-border: #475569;
+// 暗黑模式颜色（深蓝灰色系，告别纯黑）
+$dark-bg-primary: #141720;    // 页面底色（深蓝灰）
+$dark-bg-secondary: #1c1f26;  // 卡片/面板背景
+$dark-bg-tertiary: #252a35;   // hover 状态
+$dark-border: rgba(255, 255, 255, 0.08);
 
-// 间距系统
+// 间距系统（4px 基础栅格）
 $spacing-xs: 4px;
 $spacing-sm: 8px;
 $spacing-md: 16px;
@@ -37,37 +37,41 @@ $spacing-xl: 32px;
 $spacing-2xl: 48px;
 $spacing-3xl: 64px;
 
-// 圆角
-$radius-sm: 4px;
-$radius-md: 8px;
-$radius-lg: 12px;
-$radius-xl: 16px;
+// 圆角（线性感，小圆角）
+$radius-sm: 4px;     // 标签/角标
+$radius-md: 6px;     // 按钮/输入框
+$radius-lg: 10px;    // 卡片/面板
+$radius-xl: 14px;
 $radius-full: 9999px;
 
-// 阴影
-$shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-$shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-$shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-$shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+// 阴影（极度克制）
+$shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+$shadow-md: 0 4px 12px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.04);
+$shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08), 0 4px 8px rgba(0, 0, 0, 0.04);
+$shadow-xl: 0 16px 40px rgba(0, 0, 0, 0.10);
 
 // 字体
-$font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+$font-heading: 'DM Sans', system-ui, -apple-system, sans-serif;
+$font-sans: -apple-system, 'PingFang SC', 'Noto Sans SC', 'Segoe UI', Roboto, sans-serif;
 $font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 
-// 字体大小
+// 字体大小（精简字阶：12/13/14/16/18/22/28）
 $font-xs: 12px;
+$font-13: 13px;
 $font-sm: 14px;
 $font-base: 16px;
 $font-lg: 18px;
 $font-xl: 20px;
+$font-22: 22px;
 $font-2xl: 24px;
+$font-28: 28px;
 $font-3xl: 30px;
 $font-4xl: 36px;
 
-// 过渡
-$transition-fast: 150ms ease;
-$transition-base: 200ms ease;
-$transition-slow: 300ms ease;
+// 过渡（更短促，反馈更灵敏）
+$transition-fast: 100ms ease;
+$transition-base: 150ms ease;
+$transition-slow: 200ms ease;
 
 // 断点
 $breakpoint-xs: 480px;

@@ -149,9 +149,8 @@ onMounted(() => loadComments(true))
           <span class="c-time">{{ fromNow(c.created_at) }}</span>
           <div class="c-right-actions">
             <button :class="['like-btn', { liked: c.liked }]" @click="toggleLike(c)">
-              <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor" stroke="none">
-                <path v-if="c.liked" d="M8 14s-6-3.8-6-8a4 4 0 018 0 4 4 0 018 0c0 4.2-6 8-6 8z"/>
-                <path v-else fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M8 14s-6-3.8-6-8a4 4 0 018 0 4 4 0 018 0c0 4.2-6 8-6 8z"/>
+              <svg class="heart-svg" viewBox="0 0 16 16" width="13" height="13">
+                <path class="heart-path" d="M8 14s-6-3.8-6-8a4 4 0 016 0 4 4 0 016 0c0 4.2-6 8-6 8z"/>
               </svg>
               <span v-if="c.like_count">{{ c.like_count }}</span>
             </button>
@@ -199,9 +198,8 @@ onMounted(() => loadComments(true))
               <span class="c-time">{{ fromNow(r.created_at) }}</span>
               <div class="c-right-actions">
                 <button :class="['like-btn', { liked: r.liked }]" @click="toggleLike(r)">
-                  <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor" stroke="none">
-                    <path v-if="r.liked" d="M8 14s-6-3.8-6-8a4 4 0 018 0 4 4 0 018 0c0 4.2-6 8-6 8z"/>
-                    <path v-else fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M8 14s-6-3.8-6-8a4 4 0 018 0 4 4 0 018 0c0 4.2-6 8-6 8z"/>
+                  <svg class="heart-svg" viewBox="0 0 16 16" width="13" height="13">
+                    <path class="heart-path" d="M8 14s-6-3.8-6-8a4 4 0 016 0 4 4 0 016 0c0 4.2-6 8-6 8z"/>
                   </svg>
                   <span v-if="r.like_count">{{ r.like_count }}</span>
                 </button>
@@ -306,24 +304,68 @@ onMounted(() => loadComments(true))
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
+  flex-shrink: 0;
+  height: 24px; // fixed height so children always baseline to the same row
 }
 
 .like-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: flex-start; // 心形固定在左侧，计数出现时不偏移
   gap: 3px;
   background: none;
   border: none;
   color: var(--el-text-color-placeholder);
   cursor: pointer;
-  padding: 2px 6px;
+  padding: 0 4px;
+  height: 24px;
+  min-width: 24px;
   border-radius: $radius-sm;
   font-size: $font-xs;
+  line-height: 1;
   transition: color $transition-fast;
+  flex-shrink: 0;
+  vertical-align: middle;
+  overflow: visible; // 确保 SVG 心形不被裁切
 
   &:hover { color: #ef4444; }
   &.liked { color: #ef4444; }
+}
+
+// 心形 SVG：单一 path，CSS 控制填充 —— DOM 不变，位置永远固定
+.heart-svg {
+  display: block;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.heart-path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: fill 0.12s ease, stroke-width 0.12s ease;
+}
+
+.like-btn.liked .heart-path {
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 1.5; // keep same as outlined to prevent layout shift
+}
+
+// 消除 el-dropdown 外层容器及其内部触发元素的行高和高度影响
+.c-right-actions :deep(.el-dropdown),
+.c-right-actions :deep(.el-dropdown > span),
+.c-right-actions :deep(.el-dropdown > div),
+.c-right-actions :deep(.el-tooltip__trigger),
+.c-right-actions :deep(.el-dropdown__caret-button) {
+  display: inline-flex !important;
+  align-items: center !important;
+  height: 24px !important;
+  line-height: 1 !important;
+  vertical-align: middle !important;
 }
 
 .menu-btn {

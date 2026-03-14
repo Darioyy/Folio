@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS collection_folders (
 );
 
 -- 2. collections 表新增 folder_id 字段
-ALTER TABLE collections ADD COLUMN IF NOT EXISTS folder_id INT NULL,
+ALTER TABLE collections
+  ADD COLUMN folder_id INT NULL,
   ADD CONSTRAINT fk_collections_folder FOREIGN KEY (folder_id) REFERENCES collection_folders(id) ON DELETE SET NULL;
 
 -- 3. 创建博文浏览去重表

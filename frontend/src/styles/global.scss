@@ -1,4 +1,50 @@
-// VaultShare 全局样式
+// Folio 全局样式
+
+// CSS 自定义属性（运行时主题 Token）
+:root {
+  --color-primary: #{$color-primary};
+  --color-primary-hover: #4c56c0;
+  --color-primary-subtle: rgba(90, 103, 216, 0.08);
+  --color-primary-subtle-hover: rgba(90, 103, 216, 0.14);
+  --color-surface: #ffffff;
+  --color-surface-raised: #f8f9fb;
+  --color-surface-hover: #f1f3f5;
+  --color-border: #e8eaed;
+  --color-border-subtle: #f1f3f5;
+  --color-text-primary: #1a1d23;
+  --color-text-secondary: #6b7280;
+  --color-text-muted: #9ca3af;
+  --color-danger: #ef4444;
+  --shadow: #{$shadow-sm};
+  --shadow-sm: #{$shadow-sm};
+  --shadow-md: #{$shadow-md};
+  --shadow-lg: #{$shadow-lg};
+  --radius-sm: 4px;
+  --radius: 6px;
+  --radius-lg: 10px;
+  --font-display: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --transition: 0.2s ease;
+}
+
+html.dark {
+  --color-primary: #6b79e0;
+  --color-primary-hover: #5a66cc;
+  --color-primary-subtle: rgba(90, 103, 216, 0.12);
+  --color-primary-subtle-hover: rgba(90, 103, 216, 0.18);
+  --color-surface: #{$dark-bg-secondary};
+  --color-surface-raised: #{$dark-bg-primary};
+  --color-surface-hover: #{$dark-bg-tertiary};
+  --color-border: #{$dark-border};
+  --color-border-subtle: rgba(255, 255, 255, 0.04);
+  --color-text-primary: #e8eaf0;
+  --color-text-secondary: #8b93a7;
+  --color-text-muted: #6b7280;
+  --shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-sm: 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-md: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 4px 16px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 8px 32px rgba(0, 0, 0, 0.4);
+}
 
 * {
   margin: 0;
@@ -35,7 +81,8 @@ html.color-scheme-transition *::after {
 body {
   font-family: $font-sans;
   line-height: 1.6;
-  color: $color-gray-800;
+  color: var(--color-text-primary);
+  background-color: var(--color-surface-raised);
   transition: background-color 0.25s ease, color 0.25s ease;
 }
 
@@ -82,15 +129,15 @@ body {
 
 // 卡片样式
 .card {
-  background: var(--el-bg-color);
+  background: var(--color-surface);
   border-radius: $radius-lg;
   padding: $spacing-lg;
-  box-shadow: $shadow-sm;
-  border: 1px solid var(--el-border-color);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border);
   transition: box-shadow $transition-base;
 
   &:hover {
-    box-shadow: $shadow-md;
+    box-shadow: var(--shadow-md);
   }
 }
 
@@ -109,24 +156,49 @@ body {
 html.dark {
   body {
     background: $dark-bg-primary;
-    color: $color-gray-100;
+    color: #e8eaf0;
+  }
+
+  // 代码高亮暗黑背景
+  .hljs {
+    background: #1a1d26 !important;
+  }
+
+  .el-card {
+    background-color: $dark-bg-secondary !important;
+    border-color: $dark-border !important;
+  }
+
+  .el-menu {
+    background-color: $dark-bg-secondary;
+    border-color: $dark-border;
+
+    .el-menu-item,
+    .el-sub-menu__title {
+      color: #e8eaf0;
+
+      &:hover {
+        background-color: $dark-bg-tertiary;
+      }
+    }
+
+    .el-menu-item.is-active {
+      background-color: var(--el-color-primary);
+      color: #fff;
+    }
   }
 }
 
 // 动画
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(16px);
   }
   to {
     opacity: 1;
@@ -137,7 +209,7 @@ html.dark {
 @keyframes slideInRight {
   from {
     opacity: 0;
-    transform: translateX(-20px);
+    transform: translateX(-16px);
   }
   to {
     opacity: 1;
@@ -146,21 +218,21 @@ html.dark {
 }
 
 .fade-in {
-  animation: fadeIn 0.3s ease-out;
+  animation: fadeIn 0.2s ease-out;
 }
 
 .fade-in-up {
-  animation: fadeInUp 0.4s ease-out;
+  animation: fadeInUp 0.25s ease-out;
 }
 
 // Element Plus 覆盖
 .el-card {
   border-radius: $radius-lg !important;
   border: 1px solid var(--el-border-color) !important;
-  box-shadow: $shadow-sm !important;
+  box-shadow: var(--shadow-sm) !important;
 
   &:hover {
-    box-shadow: $shadow-md !important;
+    box-shadow: var(--shadow-md) !important;
   }
 }
 
@@ -182,21 +254,20 @@ html.dark {
 
 // 滚动条美化
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--el-fill-color-lighter);
-  border-radius: $radius-full;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--el-border-color-darker);
+  background: var(--color-border);
   border-radius: $radius-full;
 
   &:hover {
-    background: var(--el-border-color-dark);
+    background: var(--color-text-muted);
   }
 }
 

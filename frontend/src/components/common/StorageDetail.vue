@@ -216,7 +216,7 @@ watch(() => props.modelValue, (val) => {
     font-weight: 600;
 
     &.used {
-      color: #6366f1;
+      color: #5a67d8;
     }
 
     &.normal {
@@ -273,7 +273,7 @@ watch(() => props.modelValue, (val) => {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    background: linear-gradient(135deg, #5a67d8, #8b5cf6);
     border-radius: 10px;
     color: white;
     flex-shrink: 0;

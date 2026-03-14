@@ -21,6 +21,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '关于我' }
       },
       {
+        path: 'privacy',
+        name: 'Privacy',
+        component: () => import('@/views/Home/Privacy.vue'),
+        meta: { title: '隐私政策' }
+      },
+      {
         path: 'posts',
         name: 'Posts',
         component: () => import('@/views/Posts/index.vue'),
@@ -65,6 +71,12 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'plaza',
         redirect: '/blog'
+      },
+      {
+        path: 'following',
+        name: 'Following',
+        component: () => import('@/views/Following/index.vue'),
+        meta: { title: '关注', requiresAuth: true }
       }
     ]
   },
@@ -171,11 +183,26 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '内容管理', requiresRoot: true }
       },
       {
+        path: 'site',
+        name: 'AdminSite',
+        component: () => import('@/views/Admin/Site.vue'),
+        meta: { title: '站点设置', requiresRoot: true }
+      },
+      {
         path: 'settings',
         name: 'AdminSettings',
         component: () => import('@/views/Admin/Settings.vue'),
-        meta: { title: '系统设置', requiresAdmin: true }
+        meta: { title: '系统设置', requiresRoot: true }
       },
+      {
+        path: 'review',
+        name: 'AdminReview',
+        component: () => import('@/views/Admin/Review.vue'),
+        meta: { title: '审核中心', requiresAdmin: true }
+      },
+      // 旧路由重定向
+      { path: 'feedback', redirect: { path: '/admin/review', query: { tab: 'feedback' } } },
+      { path: 'reports', redirect: '/admin/review' },
       // 旧路由重定向
       { path: 'media', redirect: '/admin/content' },
       { path: 'resources', redirect: '/admin/content' }
@@ -210,6 +237,12 @@ router.beforeEach(async (to, from, next) => {
   // 设置页面标题
   if (title) {
     document.title = `${title} - Folio`
+  }
+
+  // 已登录用户访问登录/注册页（无 redirect 参数，即非 session 过期跳转）时直接去首页
+  if ((to.name === 'Login' || to.name === 'Register') && userStore.isLoggedIn && !to.query.redirect) {
+    next({ name: 'Home' })
+    return
   }
 
   // 需要登录的页面

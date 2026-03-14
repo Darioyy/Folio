@@ -2,7 +2,7 @@
 文章相关的 Pydantic Schemas
 """
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 from typing import Optional
 
 
@@ -11,6 +11,15 @@ class PostBase(BaseModel):
 
     title: str = Field(..., min_length=1, max_length=200, description="文章标题")
     content: str = Field("", description="文章内容")
+
+    @model_validator(mode='before')
+    @classmethod
+    def remap_body_to_content(cls, values):
+        """兼容将 body 字段映射到 content，避免字段名拼错时内容静默丢失。"""
+        if isinstance(values, dict) and 'body' in values and not values.get('content'):
+            values = dict(values)
+            values['content'] = values.pop('body')
+        return values
     summary: Optional[str] = Field(None, description="文章摘要")
     category_id: Optional[int] = Field(None, description="分类ID")
 

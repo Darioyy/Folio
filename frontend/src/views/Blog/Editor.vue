@@ -8,11 +8,14 @@
       <input v-model="title" class="title-input" placeholder="请输入标题..." maxlength="120" />
       <div class="top-actions">
         <span class="save-hint">{{ saveHint }}</span>
-        <el-button size="small" @click="drawerVisible = true">
-          <el-icon><Setting /></el-icon> 设置
-        </el-button>
+        <span :class="['status-tag', status === 'published' ? 'status-published' : 'status-draft']">
+          {{ status === 'published' ? '已发布' : '草稿' }}
+        </span>
+        <button class="top-icon-btn" title="文章设置" @click="drawerVisible = true">
+          <el-icon><Setting /></el-icon>
+        </button>
         <el-button size="small" :loading="saving" @click="handleSaveDraft">存草稿</el-button>
-        <el-button size="small" type="primary" :loading="publishing" @click="handlePublish">发布</el-button>
+        <el-button size="small" type="primary" :loading="publishing" @click="handlePublish">{{ status === 'published' ? '更新' : '发布' }}</el-button>
       </div>
     </header>
 
@@ -32,13 +35,13 @@
           <el-input v-model="summary" type="textarea" :rows="3" placeholder="留空则自动提取正文前 120 字" maxlength="300" show-word-limit />
         </div>
         <div class="drawer-section">
-          <label class="section-label">分类</label>
-          <el-select v-model="categoryId" placeholder="选择分类" clearable style="width: 100%">
+          <label class="section-label">专栏</label>
+          <el-select v-model="categoryId" placeholder="选择专栏" clearable style="width: 100%">
             <el-option v-for="cat in categories" :key="cat.id" :label="cat.name" :value="cat.id" />
           </el-select>
         </div>
         <div class="drawer-section">
-          <label class="section-label">封面图</label>
+          <label class="section-label">封面图 <span class="optional-tag">可选</span></label>
           <div v-if="coverImageUrl" class="cover-preview">
             <img :src="coverImageUrl" alt="封面" class="cover-thumb" />
             <el-button size="small" type="danger" plain @click="coverImageId = null; coverImageUrl = ''">移除</el-button>
@@ -48,7 +51,7 @@
           </el-button>
         </div>
         <div class="drawer-section">
-          <label class="section-label">附件</label>
+          <label class="section-label">附件 <span class="optional-tag">可选</span></label>
           <div v-if="attachments.length" class="attachment-list">
             <div v-for="att in attachments" :key="att.file_id" class="att-item">
               <span class="att-name">{{ att.file_name }}</span>
@@ -83,7 +86,7 @@ const router = useRouter()
 
 const {
   postId, title, content, summary, categoryId,
-  coverImageId, coverImageUrl, attachments, saving, categories,
+  coverImageId, coverImageUrl, attachments, status, saving, categories,
   initNew, initEdit, saveDraft, publish, addAttachment, removeAttachment, setCoverImage
 } = usePostEditor()
 
@@ -115,20 +118,37 @@ async function handleSaveDraft() {
 async function handlePublish() {
   if (!title.value.trim()) { ElMessage.warning('请填写标题'); return }
   if (!content.value.trim()) { ElMessage.warning('请填写正文内容'); return }
+
+  const isAlreadyPublished = status.value === 'published'
+  const confirmMsg = isAlreadyPublished
+    ? '确认更新已发布的博文？'
+    : '确认发布博文？发布后将对所有人可见。'
+  const confirmTitle = isAlreadyPublished ? '更新博文' : '发布博文'
+
   try {
-    await ElMessageBox.confirm('确认发布博文？发布后将对所有人可见。', '发布博文', {
-      confirmButtonText: '发布', cancelButtonText: '取消', type: 'info'
+    await ElMessageBox.confirm(confirmMsg, confirmTitle, {
+      confirmButtonText: isAlreadyPublished ? '更新' : '发布',
+      cancelButtonText: '取消',
+      type: 'info'
     })
   } catch { return }
   publishing.value = true
   try {
     const id = await publish()
-    if (id) { ElMessage.success('发布成功'); router.push(`/post/${id}`) }
-    else ElMessage.error('发布失败，请重试')
-  } catch { /* axios 拦截器已弹出错误提示 */ } finally { publishing.value = false }
+    if (id) {
+      ElMessage.success(isAlreadyPublished ? '更新成功' : '发布成功')
+      router.push(`/post/${id}`)
+    } else ElMessage.error('操作失败，请重试')
+  } catch { /* 拦截器已弹出错误提示 */ } finally { publishing.value = false }
 }
 
-function onCoverSelect(file: FileItem) { setCoverImage(file.id) }
+function onCoverSelect(file: FileItem) {
+  if (file.file_category !== 'image') {
+    ElMessage.warning('封面图请选择图片格式文件')
+    return
+  }
+  setCoverImage(file.id)
+}
 async function onAttachmentSelect(file: FileItem) { await addAttachment(file.id) }
 
 onMounted(() => {
@@ -190,6 +210,48 @@ onMounted(() => {
   gap: $spacing-sm;
   flex-shrink: 0;
   .save-hint { font-size: $font-xs; color: var(--el-text-color-placeholder); white-space: nowrap; }
+}
+
+.top-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: none;
+  color: var(--el-text-color-secondary);
+  cursor: pointer;
+  border-radius: $radius-sm;
+  transition: background $transition-fast, color $transition-fast;
+  flex-shrink: 0;
+
+  .el-icon { font-size: 16px; }
+  &:hover { background: var(--el-fill-color); color: var(--el-text-color-primary); }
+}
+
+.status-tag {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+
+  &.status-published {
+    background: rgba(16, 185, 129, 0.1);
+    color: #059669;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+  }
+
+  &.status-draft {
+    background: var(--el-fill-color-light);
+    color: var(--el-text-color-secondary);
+    border: 1px solid var(--el-border-color-lighter);
+  }
 }
 
 .editor-body { display: flex; flex: 1; overflow: hidden; }
@@ -259,4 +321,11 @@ onMounted(() => {
 }
 
 .attach-hint { font-size: $font-xs; color: var(--el-text-color-placeholder); margin: 0; }
+
+.optional-tag {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--el-text-color-placeholder);
+  margin-left: 4px;
+}
 </style>

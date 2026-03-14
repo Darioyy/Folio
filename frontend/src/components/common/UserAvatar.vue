@@ -42,8 +42,8 @@ const effectiveAvatarUrl = computed(() => {
   // 优先使用传入的 src
   if (props.src) return props.src
 
-  // 如果有用户对象，使用统一的头像端点
-  if (props.user?.username) {
+  // 有用户且已上传头像才请求后端；否则直接显示字母占位，避免产生 404 请求
+  if (props.user?.username && props.user?.avatar) {
     const baseUrl = import.meta.env.VITE_API_BASE_URL || ''
     return `${baseUrl}/users/username/${props.user.username}/avatar/view`
   }
@@ -76,6 +76,9 @@ function handleImageError() {
   flex-shrink: 0;
   display: inline-block;
   position: relative;
+  /* 兜底：没有匹配 size-N class 时至少有个合理默认值 */
+  width: 40px;
+  height: 40px;
 
   img {
     width: 100%;
@@ -90,9 +93,19 @@ function handleImageError() {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    background: linear-gradient(135deg, #5a67d8, #8b5cf6);
     color: #fff;
     font-weight: 600;
+    line-height: 1;
+    user-select: none;
+  }
+
+  &.size-28 {
+    width: 28px;
+    height: 28px;
+    .avatar-placeholder {
+      font-size: 12px;
+    }
   }
 
   &.size-32 {

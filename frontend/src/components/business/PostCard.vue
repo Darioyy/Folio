@@ -117,6 +117,10 @@ function handleAuthorClick(e: MouseEvent) {
   &:hover {
     transform: translateY(-2px);
     box-shadow: $shadow-lg;
+
+    .card-stats {
+      opacity: 1;
+    }
   }
 }
 
@@ -160,7 +164,7 @@ function handleAuthorClick(e: MouseEvent) {
     border-radius: $radius-full;
     font-size: $font-xs;
     font-weight: 500;
-    background: rgba(99, 102, 241, 0.85);
+    background: rgba(90, 103, 216, 0.85);
     color: #fff;
     backdrop-filter: blur(4px);
   }
@@ -210,7 +214,7 @@ function handleAuthorClick(e: MouseEvent) {
 
       &:hover {
         color: $color-primary;
-        background: rgba(99, 102, 241, 0.08);
+        background: rgba(90, 103, 216, 0.08);
       }
     }
 
@@ -243,6 +247,8 @@ function handleAuthorClick(e: MouseEvent) {
     margin-top: $spacing-sm;
     font-size: 11px;
     color: var(--el-text-color-placeholder);
+    opacity: 0;
+    transition: opacity 0.15s ease;
 
     .stat-item {
       display: flex;

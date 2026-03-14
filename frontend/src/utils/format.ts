@@ -17,14 +17,14 @@ const TZ = 'Asia/Shanghai'
  * 后端返回无时区的 datetime 字符串（服务器存储的是北京时间），强制以 UTC+8 解析
  */
 export function formatDate(date: string | Date, format = 'YYYY-MM-DD HH:mm:ss'): string {
-  return dayjs.tz(date, TZ).format(format)
+  return dayjs.utc(date).tz(TZ).format(format)
 }
 
 /**
  * 相对时间（北京时间基准）
  */
 export function fromNow(date: string | Date): string {
-  return dayjs.tz(date, TZ).fromNow()
+  return dayjs.utc(date).tz(TZ).fromNow()
 }
 
 /**
@@ -78,7 +78,7 @@ export function getFileUrl(path: string | null | undefined): string {
 
   // 开发环境使用完整路径，生产环境使用相对路径
   if (import.meta.env.DEV) {
-    return `http://localhost:5000/uploads/${path}`
+    return `${import.meta.env.VITE_DEV_UPLOAD_BASE_URL || 'http://localhost:5000/uploads'}/${path}`
   }
   return `/uploads/${path}`
 }

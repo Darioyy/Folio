@@ -54,6 +54,7 @@ export interface Post {
   author_nickname?: string
   author_avatar?: string
   status: 'draft' | 'published' | 'archived'
+  is_pinned?: number
   is_hidden?: number
   hide_reason?: string
   review_status?: 'none' | 'pending' | 'rejected'
@@ -72,6 +73,8 @@ export interface Category {
   id: number
   name: string
   description?: string
+  avatar_path?: string
+  avatar_url?: string
   sort_order?: number
   created_at: string
 }
@@ -190,7 +193,7 @@ export interface Comment {
 export interface Notification {
   id: number
   user_id: number
-  type: 'like' | 'collect' | 'comment' | 'reply' | 'follow' | 'new_post' | 'admin' | 'appeal' | 'review_result'
+  type: 'like' | 'collect' | 'comment' | 'reply' | 'follow' | 'new_post' | 'admin' | 'appeal' | 'review_result' | 'report' | 'pinned'
   actor_id: number
   target_id: number | null
   extra: Record<string, any> | null

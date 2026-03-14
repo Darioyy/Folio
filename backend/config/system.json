@@ -1,8 +1,0 @@
-{
-  "register_enabled": true,
-  "invite_code_required": false,
-  "storage_quota_default": 1073741824,
-  "max_file_size": 16777216,
-  "allowed_extensions": "png,jpg,jpeg,gif,webp,mp4,webm,avi,pdf,doc,docx,txt,md,zip,rar",
-  "invite_codes": []
-}

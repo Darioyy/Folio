@@ -202,6 +202,19 @@ class FileService:
             file.description = file_data.description
         if file_data.visibility is not None:
             file.visibility = file_data.visibility
+        if file_data.file_name is not None:
+            new_name = file_data.file_name.strip()
+            if new_name and new_name != file.file_name:
+                # 同目录重名检查（排除自身）
+                dup_stmt = select(File.id).where(
+                    File.user_id == file.user_id,
+                    File.file_name == new_name,
+                    File.id != file_id,
+                    File.group_id.is_(None) if file.group_id is None else File.group_id == file.group_id,
+                )
+                if session.execute(dup_stmt).scalar_one_or_none() is not None:
+                    raise ValueError(f'该目录下已存在同名文件「{new_name}」')
+                file.file_name = new_name
 
         session.commit()
         session.refresh(file)

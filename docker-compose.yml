@@ -2,7 +2,7 @@ services:
   # MySQL 数据库（低配服务器优化版）
   mysql:
     image: mysql:8.0
-    container_name: ai_web_dev_mysql
+    container_name: folio_mysql
     restart: always
     env_file:
       - .env
@@ -11,32 +11,29 @@ services:
       - MYSQL_DATABASE=${MYSQL_DATABASE}
       - MYSQL_USER=${MYSQL_USER}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
-    ports:
-      - "3306:3306"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - folio_mysql_data:/var/lib/mysql
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
       - ./mysql.cnf:/etc/mysql/conf.d/custom.cnf
     # 低配服务器优化命令
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
-      - --max_connections=100          # 最大连接数（默认151）
-      - --table_open_cache=200         # 表缓存（默认4000）
-      - --innodb_buffer_pool_size=128M # InnoDB缓冲池（默认128M，已是最小）
-      - --innodb_log_file_size=32M     # 日志文件大小
-      - --key_buffer_size=16M          # 键缓冲区
-      - --sort_buffer_size=2M          # 排序缓冲区
-      - --read_buffer_size=1M          # 读缓冲区
-    # 资源限制（防止占用过多资源）
+      - --max_connections=100
+      - --table_open_cache=200
+      - --innodb_buffer_pool_size=128M
+      - --innodb_log_file_size=32M
+      - --key_buffer_size=16M
+      - --sort_buffer_size=2M
+      - --read_buffer_size=1M
     deploy:
       resources:
         limits:
-          cpus: '1.0'      # 最多使用1个CPU核心
-          memory: 512M     # 最多使用512MB内存
+          cpus: '1.0'
+          memory: 512M
         reservations:
-          cpus: '0.25'     # 保留0.25个CPU核心
-          memory: 128M     # 保留128MB内存
+          cpus: '0.25'
+          memory: 128M
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 15s
@@ -49,10 +46,9 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: ai_web_dev_backend
+    container_name: folio_backend
     restart: always
-    ports:
-      - "5000:5000"
+    # 不暴露 5000 端口到宿主机，由 nginx 内部代理
     env_file:
       - .env
     environment:
@@ -63,20 +59,20 @@ services:
       - MYSQL_DATABASE=${MYSQL_DATABASE}
       - SECRET_KEY=${SECRET_KEY}
       - FLASK_ENV=${FLASK_ENV:-production}
+      - CORS_ORIGINS=${CORS_ORIGINS}
     depends_on:
       mysql:
         condition: service_healthy
     volumes:
       - ./uploads:/app/uploads
-    # 资源限制（防止占用过多资源）
     deploy:
       resources:
         limits:
-          cpus: '1.0'      # 最多使用1个CPU核心
-          memory: 512M     # 最多使用512MB内存
+          cpus: '1.0'
+          memory: 512M
         reservations:
-          cpus: '0.25'     # 保留0.25个CPU核心
-          memory: 128M     # 保留128MB内存
+          cpus: '0.25'
+          memory: 128M
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s
@@ -87,17 +83,17 @@ services:
   # Nginx 前端
   nginx:
     image: nginx:alpine
-    container_name: ai_web_dev_nginx
+    container_name: folio_nginx
     restart: always
     ports:
       - "80:80"
     volumes:
-      - ./frontend:/usr/share/nginx/html
+      # 挂载编译后的静态文件（需先执行 cd frontend && npm run build）
+      - ./frontend/dist:/usr/share/nginx/html
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
       - ./uploads:/usr/share/nginx/uploads
     depends_on:
       - backend
-    # 资源限制
     deploy:
       resources:
         limits:
@@ -108,5 +104,5 @@ services:
           memory: 64M
 
 volumes:
-  mysql_data:
+  folio_mysql_data:
     driver: local

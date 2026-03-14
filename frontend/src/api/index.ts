@@ -13,11 +13,6 @@ const service: AxiosInstance = axios.create({
 // 请求拦截器
 service.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    // 添加 token（如果使用 Bearer Token）
-    const token = storage.getToken()
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
     return config
   },
   (error: AxiosError) => {
@@ -29,6 +24,7 @@ service.interceptors.request.use(
 service.interceptors.response.use(
   (response) => {
     const data = response.data as ApiResponse
+    const silent = (response.config as any)._silent
 
     // 后端统一响应格式：{ success: boolean, data?: any, error?: {code, message} | string }
     if (data.success === false) {
@@ -36,13 +32,16 @@ service.interceptors.response.use(
       const errorMsg = typeof data.error === 'string'
         ? data.error
         : data.error?.message || '请求失败'
-      ElMessage.error({ message: errorMsg, duration: 5000, showClose: true })
+      if (!silent) ElMessage.error({ message: errorMsg, duration: 5000, showClose: true })
       return Promise.reject(new Error(errorMsg))
     }
 
     return response
   },
   (error: AxiosError<ApiResponse>) => {
+    // 静默模式：不显示错误 toast（用于批量上传，由调用方统一汇总）
+    if ((error.config as any)?._silent) return Promise.reject(error)
+
     const { response } = error
 
     if (response) {

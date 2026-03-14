@@ -24,6 +24,7 @@ ENV/
 
 # 上传文件
 uploads/
+docs/
 
 # 调试前端
 view of page/

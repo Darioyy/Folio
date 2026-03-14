@@ -1,21 +1,16 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import ElementPlus from 'element-plus'
-import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import 'element-plus/dist/index.css'
 import 'element-plus/theme-chalk/dark/css-vars.css'
 
 import App from './App.vue'
 import router from './router'
-import '@/assets/styles/index.scss'
+import '@/assets/styles/index.scss'   // 保留旧系统（提供 .fade-enter-active 等 Vue 过渡类）
+import '@/styles/global.scss'          // 新样式系统：加载全部 CSS 自定义属性
 import { useAppStore } from '@/stores/app'
 
 const app = createApp(App)
-
-// 注册所有 Element Plus 图标
-for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
-  app.component(key, component)
-}
 
 const pinia = createPinia()
 app.use(pinia)

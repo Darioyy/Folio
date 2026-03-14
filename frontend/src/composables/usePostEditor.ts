@@ -57,7 +57,8 @@ export function usePostEditor() {
     postId.value = null; title.value = ''; content.value = ''; summary.value = ''
     categoryId.value = null; coverImageId.value = null; coverImageUrl.value = ''; attachments.value = []
     status.value = 'draft'
-    readLocalDraft(getDraftNewKey())
+    // 始终清除残留的"新建"草稿 key，保证新建时为空白编辑器
+    localStorage.removeItem(getDraftNewKey())
     loadCategories()
     watch([title, content], scheduleAutoSave)
   }
@@ -91,7 +92,12 @@ export function usePostEditor() {
         return res.success ? postId.value : null
       } else {
         const res = await postsApi.create(payload)
-        if (res.success && res.data) { postId.value = res.data.id; return res.data.id }
+        if (res.success && res.data) {
+          postId.value = res.data.id
+          // 新建草稿首次保存后立即清除"新建"key，防止下次新建时恢复旧内容
+          localStorage.removeItem(getDraftNewKey())
+          return res.data.id
+        }
         return null
       }
     } finally { saving.value = false }
@@ -100,6 +106,11 @@ export function usePostEditor() {
   async function publish(): Promise<number | null> {
     const id = await saveDraft()
     if (!id) return null
+    // 若已是发布状态，直接返回 id（无需再次调用 publish 接口）
+    if (status.value === 'published') {
+      clearLocalDraft()
+      return id
+    }
     const res = await postsApi.publish(id)
     if (res.success) { status.value = 'published'; clearLocalDraft(); return id }
     return null
@@ -126,7 +137,9 @@ export function usePostEditor() {
   }
 
   function clearLocalDraft() {
-    localStorage.removeItem(postId.value ? getDraftKey(postId.value) : getDraftNewKey())
+    // 始终清除"新建"草稿 key，确保下次新建时得到空白编辑器
+    localStorage.removeItem(getDraftNewKey())
+    if (postId.value) localStorage.removeItem(getDraftKey(postId.value))
   }
 
   return {

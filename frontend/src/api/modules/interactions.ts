@@ -1,4 +1,4 @@
-import { post, get, getPaginated } from '../request'
+import { post, get, put, del, getPaginated } from '../request'
 import type { ApiResponse, PaginatedResponse } from '@/types/api'
 import type { FileItem, Post } from '@/types/models'
 
@@ -8,6 +8,14 @@ export interface PostCollectionsResult {
   page: number
   page_size: number
   pages: number
+}
+
+export interface CollectionFolder {
+  id: number
+  user_id: number
+  name: string
+  created_at: string
+  post_count?: number
 }
 
 export interface InteractionStatus {
@@ -68,7 +76,26 @@ export const interactionsApi = {
     return get(`/posts/${postId}/status`)
   },
 
-  getMyPostCollections(page = 1, pageSize = 20): Promise<ApiResponse<PostCollectionsResult>> {
-    return get('/posts/me/collections', { page, page_size: pageSize })
-  }
+  getMyPostCollections(page = 1, pageSize = 20, folderId?: number | null): Promise<ApiResponse<PostCollectionsResult>> {
+    const params: Record<string, any> = { page, page_size: pageSize }
+    if (folderId !== undefined && folderId !== null) params.folder_id = folderId
+    return get('/posts/me/collections', params)
+  },
+
+  // ---- 收藏夹管理 ----
+  getCollectionFolders(): Promise<ApiResponse<CollectionFolder[]>> {
+    return get('/posts/me/collections/folders')
+  },
+  createCollectionFolder(name: string): Promise<ApiResponse<CollectionFolder>> {
+    return post('/posts/me/collections/folders', { name })
+  },
+  renameCollectionFolder(id: number, name: string): Promise<ApiResponse<CollectionFolder>> {
+    return put(`/posts/me/collections/folders/${id}`, { name })
+  },
+  deleteCollectionFolder(id: number): Promise<ApiResponse> {
+    return del(`/posts/me/collections/folders/${id}`)
+  },
+  moveCollectionToFolder(postId: number, folderId: number | null): Promise<ApiResponse> {
+    return put(`/posts/${postId}/collect/folder`, { folder_id: folderId })
+  },
 }

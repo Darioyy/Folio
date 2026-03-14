@@ -11,7 +11,7 @@
 
         <!-- 文章元信息 -->
         <div class="post-meta">
-          <el-tag>{{ post.category_name || '未分类' }}</el-tag>
+          <el-tag>{{ post.category_name || '未分配专栏' }}</el-tag>
           <span class="meta-item">
             <el-icon><User /></el-icon>
             {{ post.author_name || '匿名' }}
@@ -29,7 +29,7 @@
         <el-divider />
 
         <!-- 文章内容 -->
-        <div class="post-content" v-html="renderContent(post.content)" />
+        <div class="post-content" v-html="markdownHtml" />
 
         <!-- 文章操作 -->
         <div class="post-actions">
@@ -43,18 +43,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { User, View, Clock } from '@element-plus/icons-vue'
 import { postsApi } from '@/api/modules/posts'
 import { formatDate } from '@/utils/format'
-import { escapeHtml } from '@/utils/format'
+import { marked } from '@/utils/markdown'
+import DOMPurify from 'dompurify'
 
 const route = useRoute()
 const router = useRouter()
 
 const post = ref<any>(null)
 const loading = ref(true)
+
+const markdownHtml = computed(() =>
+  post.value?.content ? DOMPurify.sanitize(String(marked.parse(post.value.content))) : ''
+)
 
 async function loadPost() {
   loading.value = true
@@ -67,18 +72,6 @@ async function loadPost() {
   } finally {
     loading.value = false
   }
-}
-
-function renderContent(content: string) {
-  // 简单的 Markdown 转换（可以用 marked.js 替代）
-  let html = escapeHtml(content)
-  // 转换换行
-  html = html.replace(/\n/g, '<br>')
-  // 转换标题
-  html = html.replace(/^# (.*$)/gm, '<h1>$1</h1>')
-  html = html.replace(/^## (.*$)/gm, '<h2>$1</h2>')
-  html = html.replace(/^### (.*$)/gm, '<h3>$1</h3>')
-  return html
 }
 
 function goBack() {

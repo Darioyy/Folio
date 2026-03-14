@@ -1,12 +1,23 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { storage } from '@/utils/storage'
+import { postsApi } from '@/api/modules/posts'
 
 export const useAppStore = defineStore('app', () => {
   // 状态
   const isDarkMode = ref(false)
   const isLoading = ref(false)
   const sidebarCollapsed = ref(false)
+
+  // 审核待处理数量（全局共享，所有管理员界面共用同一个值）
+  const reviewCount = ref(0)
+
+  async function refreshReviewCount() {
+    try {
+      const res = await postsApi.getAdminReviewCount()
+      if (res.success && res.data) reviewCount.value = res.data.total
+    } catch { /* ignore */ }
+  }
 
   // 初始化暗黑模式
   function initDarkMode() {
@@ -60,9 +71,11 @@ export const useAppStore = defineStore('app', () => {
     isDarkMode,
     isLoading,
     sidebarCollapsed,
+    reviewCount,
     initDarkMode,
     toggleDarkMode,
     setLoading,
-    toggleSidebar
+    toggleSidebar,
+    refreshReviewCount,
   }
 })

@@ -8,12 +8,14 @@
         </transition>
       </router-view>
     </main>
+    <AppTabBar />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import AppHeader from '@/components/common/AppHeader.vue'
+import AppTabBar from '@/components/common/AppTabBar.vue'
 import { useAppStore } from '@/stores/app'
 
 const appStore = useAppStore()
@@ -30,5 +32,10 @@ const isDarkMode = computed(() => appStore.isDarkMode)
 .app-main {
   flex: 1;
   padding: $spacing-lg 0;
+
+  // 移动端底部为 TabBar 留出空间
+  @media (max-width: 640px) {
+    padding-bottom: calc(#{$spacing-lg} + 56px);
+  }
 }
 </style>

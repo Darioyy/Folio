@@ -17,7 +17,7 @@ class SearchService:
         type_: 'file' | 'user' | 'all'
         仅搜索公开文件
         """
-        q = q.strip()
+        q = q.strip()[:100]  # P2: 截断超长搜索词，防全表扫描
         if not q:
             return {'files': [], 'users': [], 'total': 0}
 

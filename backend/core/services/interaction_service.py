@@ -141,19 +141,31 @@ class InteractionService:
     # ============================================================
 
     @staticmethod
-    def get_user_collections(user_id: int, page: int = 1, page_size: int = 20) -> Dict:
-        """获取用户收藏的博文列表"""
+    def get_user_collections(user_id: int, page: int = 1, page_size: int = 20, folder_id=None) -> Dict:
+        """获取用户收藏的博文列表
+        folder_id=None  → 全部收藏
+        folder_id=0     → 未分类（folder_id IS NULL）
+        folder_id>0     → 指定收藏夹
+        """
         from sqlalchemy import func
         offset = (page - 1) * page_size
 
+        base_where = [Collection.user_id == user_id]
+        if folder_id is None:
+            pass  # 不过滤 folder_id
+        elif folder_id == 0:
+            base_where.append(Collection.folder_id.is_(None))
+        else:
+            base_where.append(Collection.folder_id == folder_id)
+
         total = db.session.execute(
-            select(func.count(Collection.id)).where(Collection.user_id == user_id)
+            select(func.count(Collection.id)).where(*base_where)
         ).scalar() or 0
 
         rows = db.session.execute(
             select(Collection, Post)
             .join(Post, Collection.post_id == Post.id)
-            .where(Collection.user_id == user_id)
+            .where(*base_where)
             .order_by(Collection.created_at.desc())
             .offset(offset).limit(page_size)
         ).all()
@@ -162,6 +174,7 @@ class InteractionService:
         for coll, p in rows:
             d = p.to_dict(include_author=True, include_category=True)
             d['collected_at'] = coll.created_at.isoformat()
+            d['folder_id'] = coll.folder_id
             items.append(d)
 
         return {

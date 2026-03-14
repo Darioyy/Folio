@@ -110,6 +110,7 @@ export const postsApi = {
     username?: string
     category_id?: number | ''
     status?: string
+    needs_review?: number
   }): Promise<ApiResponse<{ items: any[]; total: number }>> {
     return get('/posts/admin/all', params)
   },
@@ -154,6 +155,56 @@ export const postsApi = {
    */
   reviewAppeal(id: number, action: 'approve' | 'reject', reason?: string): Promise<ApiResponse<{ review_status: string; is_hidden: number }>> {
     return put(`/posts/${id}/review`, { action, reason })
+  },
+
+  /**
+   * 获取关注用户的博文
+   */
+  getFollowingPosts(params?: { page?: number; page_size?: number }): Promise<ApiResponse<{ items: Post[]; total: number; page: number; page_size: number; pages: number }>> {
+    return get('/posts/following', params)
+  },
+
+  /**
+   * Root 置顶/取消置顶博文
+   */
+  togglePin(id: number, pinned: boolean): Promise<ApiResponse<{ is_pinned: number }>> {
+    return put(`/posts/${id}/pin`, { pinned })
+  },
+
+  /**
+   * 举报博文
+   */
+  reportPost(id: number, reason: string): Promise<ApiResponse> {
+    return post(`/posts/${id}/report`, { reason })
+  },
+
+  /** 查询博文举报者列表（管理员） */
+  getReporters(id: number): Promise<ApiResponse<Array<{ user_id: number; username: string; nickname: string | null; reason: string; reported_at: string }>>> {
+    return get(`/posts/${id}/reporters`)
+  },
+
+  /** 举报有效：隐藏博文并通知双方 */
+  reportValid(id: number, reason: string): Promise<ApiResponse<{ is_hidden: number }>> {
+    return put(`/posts/${id}/report-valid`, { reason })
+  },
+
+  /** 举报无效：驳回举报并感谢举报者 */
+  reportInvalid(id: number): Promise<ApiResponse<{ report_count: number }>> {
+    return put(`/posts/${id}/report-invalid`, {})
+  },
+
+  /**
+   * 管理员获取待处理审核数量
+   */
+  getAdminReviewCount(): Promise<ApiResponse<{ total: number; pending_appeals: number; unprocessed_reports: number; pending_feedback: number }>> {
+    return get('/posts/admin/review-count')
+  },
+
+  /**
+   * 上传专栏头像
+   */
+  uploadCategoryAvatar(id: number, formData: FormData): Promise<ApiResponse<{ avatar_url: string }>> {
+    return post(`/system/categories/${id}/avatar`, formData)
   },
 
 }

@@ -116,7 +116,7 @@ const navItems = [
   }
 
   &.active {
-    background: rgba(99, 102, 241, 0.1);
+    background: rgba(90, 103, 216, 0.1);
     color: $color-primary;
     font-weight: 500;
   }

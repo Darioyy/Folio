@@ -64,16 +64,17 @@ export function useBatchSelect(
     const fileIds = [...selectedItems.value].filter(k => k.startsWith('file:')).map(k => Number(k.slice(5)))
     const folderIds = [...selectedItems.value].filter(k => k.startsWith('folder:')).map(k => Number(k.slice(7)))
     const total = fileIds.length + folderIds.length
+    const folderNote = folderIds.length > 0 ? '文件夹及其内部所有内容将被彻底删除，' : ''
     try {
       await ElMessageBox.confirm(
-        `确认删除已选的 ${total} 个项目？文件夹中的文件将移至未分组，此操作不可撤销。`,
+        `确认删除已选的 ${total} 个项目？${folderNote}此操作不可撤销。`,
         '批量删除',
         { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' }
       )
     } catch { return }
     let errCount = 0
     for (const id of fileIds) { try { await filesApi.delete(id) } catch { errCount++ } }
-    for (const id of folderIds) { try { await groupsApi.delete(id) } catch { errCount++ } }
+    for (const id of folderIds) { try { await groupsApi.delete(id, true) } catch { errCount++ } }
     if (errCount > 0) ElMessage.warning(`部分项目删除失败（${errCount} 个）`)
     else ElMessage.success(`已删除 ${total} 个项目`)
     selectedItems.value = new Set()

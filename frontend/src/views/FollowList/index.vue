@@ -18,6 +18,7 @@
             <FollowUserList
               :users="followers"
               :loading="loading"
+              :is-own-list="isOwnProfile"
               @follow-change="handleFollowChange"
             />
           </div>
@@ -27,6 +28,7 @@
             <FollowUserList
               :users="following"
               :loading="loading"
+              :is-own-list="isOwnProfile"
               @follow-change="handleFollowChange"
             />
           </div>
@@ -39,6 +41,7 @@
           :users="currentUserList"
           :loading="loading"
           :show-follow-button="!isOwnProfile"
+          :is-own-list="isOwnProfile"
           @follow-change="handleFollowChange"
         />
       </div>
@@ -193,7 +196,7 @@ onMounted(async () => {
   background: #f9fafb;
 
   html.dark & {
-    background: #0f172a;
+    background: #141720;
   }
 }
 
