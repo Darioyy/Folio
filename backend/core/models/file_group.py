@@ -2,7 +2,7 @@
 文件分组模型 - SQLAlchemy ORM
 """
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Index
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Index
 from sqlalchemy.orm import relationship
 from db.session import db as db_session
 
@@ -15,6 +15,7 @@ class FileGroup(db_session.Model):
     user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, comment='所属用户ID')
     parent_id = Column(Integer, ForeignKey('file_groups.id', ondelete='SET NULL'), nullable=True, default=None, comment='父分组ID（NULL=根目录）')
     name = Column(String(100), nullable=False, comment='分组名称')
+    description = Column(Text, nullable=True, default=None, comment='分组描述')
     sort_order = Column(Integer, default=0, nullable=False, comment='排序权重')
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, comment='创建时间')
 
@@ -33,6 +34,7 @@ class FileGroup(db_session.Model):
             'id': self.id,
             'parent_id': self.parent_id,
             'name': self.name,
+            'description': self.description,
             'sort_order': self.sort_order,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'file_count': file_count,

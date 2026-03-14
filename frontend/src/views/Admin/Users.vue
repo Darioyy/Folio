@@ -38,9 +38,9 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="注册时间" width="180">
+        <el-table-column label="注册时间" width="110">
           <template #default="{ row }">
-            {{ formatDate(row.created_at) }}
+            <span class="date-cell">{{ formatDate(row.created_at, 'YYYY-MM-DD') }}</span>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="80" fixed="right">
@@ -51,9 +51,7 @@
               type="primary"
               :icon="Edit"
               @click="showEditDialog(row)"
-            >
-              编辑
-            </el-button>
+            />
           </template>
         </el-table-column>
       </el-table>
@@ -263,22 +261,22 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-.admin-users {
-  .toolbar {
-    display: flex;
-    align-items: center;
-    margin-bottom: $spacing-md;
-  }
-}
+.admin-users { }
 
 .username-link {
-  color: #6366f1;
+  color: #5a67d8;
   text-decoration: none;
   font-weight: 500;
 
   &:hover {
     text-decoration: underline;
   }
+}
+
+.date-cell {
+  font-size: $font-sm;
+  color: var(--el-text-color-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
 .field-hint {

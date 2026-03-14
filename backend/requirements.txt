@@ -24,7 +24,7 @@ opencv-python==4.8.1.78
 Pillow==10.1.0
 
 # 限速
-Flask-Limiter==3.5.0
+Flask-Limiter[redis]==3.5.0
 
 # WSGI服务器
 gunicorn==21.2.0

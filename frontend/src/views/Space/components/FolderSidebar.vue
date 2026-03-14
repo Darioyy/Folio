@@ -15,19 +15,23 @@
     <div
       v-for="sc in shortcuts"
       :key="`sc-${sc.type}-${sc.id}`"
-      :class="['group-item', 'shortcut-item']"
+      :class="['group-item', 'shortcut-item', { 'shortcut-stale': sc.type === 'folder' && staleShortcutIds.has(sc.id) }]"
+      :title="sc.type === 'folder' && staleShortcutIds.has(sc.id) ? `「${sc.name}」已被删除` : sc.name"
       @click="navigateShortcut(sc)"
     >
       <span class="group-icon-wrap shortcut-icon">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+        <svg v-if="!(sc.type === 'folder' && staleShortcutIds.has(sc.id))" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
           <path d="M1.5 5a1 1 0 011-1H5.6l1.1 1.5H13.5a1 1 0 011 1V12a1 1 0 01-1 1h-11a1 1 0 01-1-1V5z"/>
+        </svg>
+        <svg v-else viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" style="color:#f59e0b">
+          <path d="M8 2L1.5 13h13L8 2z"/><line x1="8" y1="7" x2="8" y2="10"/><circle cx="8" cy="12" r="0.5" fill="currentColor"/>
         </svg>
       </span>
       <span class="group-name shortcut-name">{{ sc.name }}</span>
-      <span class="shortcut-remove" @click.stop="removeShortcut(sc)" title="移除">×</span>
+      <span class="shortcut-remove" :class="{ 'always-visible': sc.type === 'folder' && staleShortcutIds.has(sc.id) }" @click.stop="removeShortcut(sc)" title="移除">×</span>
     </div>
 
-    <div v-if="isSidebarDragOver" class="sidebar-drop-hint">拖放到此添加快捷方式</div>
+    <div v-if="isSidebarDragOver" class="sidebar-drop-hint">松开添加文件夹快捷方式</div>
 
     <!-- 操作按钮 -->
     <div class="sidebar-actions">
@@ -35,6 +39,17 @@
         <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>
         添加快捷方式
       </button>
+    </div>
+
+    <!-- 根目录配额指示器 -->
+    <div class="folder-quota">
+      <div class="quota-text">
+        <span>根目录文件夹</span>
+        <span class="quota-count">{{ rootGroups.length }} / 20</span>
+      </div>
+      <div class="quota-bar">
+        <div class="quota-fill" :style="{ width: `${Math.min(rootGroups.length / 20 * 100, 100)}%`, background: rootGroups.length >= 18 ? 'var(--el-color-warning)' : undefined }"></div>
+      </div>
     </div>
 
     <!-- 快捷方式选取对话框 -->
@@ -45,6 +60,10 @@
       :align-center="true"
       append-to-body
     >
+      <p class="shortcut-picker-tip">
+        <svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:0.7"><circle cx="7" cy="7" r="5.5"/><line x1="7" y1="5" x2="7" y2="7.5"/><circle cx="7" cy="9.5" r="0.5" fill="currentColor" stroke="none"/></svg>
+        也可直接将文件夹拖拽到侧边栏快速添加
+      </p>
       <el-tree
         :data="folderTree"
         :props="{ children: 'children', label: 'name' }"
@@ -70,12 +89,13 @@ import type { useFileManager } from '@/composables/useFileManager'
 import type { useDragDrop } from '@/composables/useDragDrop'
 import type { useShortcuts } from '@/composables/useShortcuts'
 
+const { rootGroups } = inject('groupNav') as ReturnType<typeof useGroupNav>
 const { folderTree } = inject('fileManager') as ReturnType<typeof useFileManager>
 
 const { isSidebarDragOver, onSidebarDragEnter, onSidebarDragOver, onSidebarDragLeave, onSidebarDrop } =
   inject('dragDrop') as ReturnType<typeof useDragDrop>
 
-const { shortcuts, removeShortcut, navigateShortcut, showShortcutPickerDialog, shortcutPickerSelected, openShortcutPicker, confirmAddShortcut } =
+const { shortcuts, staleShortcutIds, removeShortcut, navigateShortcut, showShortcutPickerDialog, shortcutPickerSelected, openShortcutPicker, confirmAddShortcut } =
   inject('shortcuts') as ReturnType<typeof useShortcuts>
 </script>
 
@@ -94,6 +114,9 @@ const { shortcuts, removeShortcut, navigateShortcut, showShortcutPickerDialog, s
   display: flex;
   flex-direction: column;
   gap: 1px;
+  // 工具栏高度(36px) + margin-bottom(24px) + 面包屑 margin-top(3px) ≈ 63px
+  // 使侧边栏 card 的顶边与面包屑路径栏顶边对齐
+  margin-top: 63px;
 }
 
 .sidebar-section-header {
@@ -155,13 +178,50 @@ const { shortcuts, removeShortcut, navigateShortcut, showShortcutPickerDialog, s
 }
 
 .shortcut-item:hover .shortcut-remove { display: flex; }
+.shortcut-remove.always-visible { display: flex; }
+
+.shortcut-stale {
+  opacity: 0.65;
+  pointer-events: none;
+  .shortcut-name { text-decoration: line-through; color: var(--el-color-warning); }
+  .shortcut-remove { pointer-events: auto; }
+}
+.shortcut-stale:hover { background: transparent; }
+.shortcut-stale .shortcut-remove.always-visible { pointer-events: auto; }
+
+.folder-quota {
+  padding: 6px $spacing-sm 4px;
+  margin-top: auto;
+  padding-top: $spacing-sm;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+.quota-text {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--el-text-color-placeholder);
+  margin-bottom: 4px;
+}
+.quota-count { font-variant-numeric: tabular-nums; }
+.quota-bar {
+  height: 2px;
+  background: var(--el-fill-color);
+  border-radius: $radius-full;
+  overflow: hidden;
+}
+.quota-fill {
+  height: 100%;
+  background: $color-primary;
+  border-radius: $radius-full;
+  transition: width 0.3s ease;
+}
 
 .sidebar-drop-hint {
   font-size: 10px;
   color: $color-primary;
   text-align: center;
   padding: 4px $spacing-xs;
-  background: rgba(99, 102, 241, 0.05);
+  background: rgba(90, 103, 216, 0.05);
   border-radius: $radius-sm;
   margin: 2px 0;
 }
@@ -209,6 +269,20 @@ const { shortcuts, removeShortcut, navigateShortcut, showShortcutPickerDialog, s
 
 .shortcut-icon svg { opacity: 1; }
 
+.shortcut-picker-tip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 10px;
+  padding: 7px 10px;
+  background: rgba(90, 103, 216, 0.06);
+  border-radius: $radius-sm;
+  font-size: 11.5px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.4;
+}
+
+
 .shortcut-tree {
   max-height: 300px;
   overflow-y: auto;
@@ -221,7 +295,7 @@ const { shortcuts, removeShortcut, navigateShortcut, showShortcutPickerDialog, s
   }
 
   :deep(.el-tree-node.is-current > .el-tree-node__content) {
-    background: rgba(99, 102, 241, 0.08);
+    background: rgba(90, 103, 216, 0.08);
     color: $color-primary;
   }
 }
@@ -237,6 +311,7 @@ const { shortcuts, removeShortcut, navigateShortcut, showShortcutPickerDialog, s
     gap: $spacing-xs;
     border-radius: $radius-md;
     max-height: none;
+    margin-top: 0;
 
     .sidebar-section-header { display: none; }
     .shortcuts-header { display: none; }

@@ -20,6 +20,7 @@ export interface FileUpdateData {
   title?: string
   description?: string
   visibility?: 'private' | 'public'
+  file_name?: string
 }
 
 export const filesApi = {
@@ -58,18 +59,19 @@ export const filesApi = {
 
   /**
    * 上传文件（带进度回调）
+   * @param silent 设为 true 时抑制逐条错误 toast（批量上传时使用）
    */
   uploadWithProgress(
     formData: FormData,
-    onProgress: (percent: number) => void
+    onProgress: (percent: number) => void,
+    silent = false
   ): Promise<ApiResponse<FileItem>> {
     return service.post<ApiResponse<FileItem>>('/files', formData, {
       onUploadProgress: (e: any) => {
-        if (e.total) {
-          onProgress(Math.round((e.loaded / e.total) * 100))
-        }
-      }
-    }).then(res => res.data)
+        if (e.total) onProgress(Math.round((e.loaded / e.total) * 100))
+      },
+      _silent: silent,
+    } as any).then(res => res.data)
   },
 
   /**
@@ -101,26 +103,23 @@ export const filesApi = {
   },
 
   /**
-   * 获取媒体文件查看 URL（图片 / 视频直链）
-   * 复用旧 /media/:id/view 端点（向后兼容）
+   * 获取媒体文件查看 URL（图片 / 视频直链，inline 模式）
    */
   getViewUrl(id: number): string {
-    return `${import.meta.env.VITE_API_BASE_URL}/media/${id}/view`
+    return `${import.meta.env.VITE_API_BASE_URL}/files/${id}/download`
   },
 
   /**
-   * 获取缩略图 URL
-   * 复用旧 /media/:id/thumbnail 端点（向后兼容）
+   * 获取缩略图 URL（图片原图 / 视频封面）
    */
   getThumbnailUrl(id: number): string {
-    return `${import.meta.env.VITE_API_BASE_URL}/media/${id}/thumbnail`
+    return `${import.meta.env.VITE_API_BASE_URL}/files/${id}/thumbnail`
   },
 
   /**
-   * 获取资源文件下载 URL
-   * 复用旧 /resources/:id/download 端点（向后兼容）
+   * 获取文件下载 URL
    */
   getDownloadUrl(id: number): string {
-    return `${import.meta.env.VITE_API_BASE_URL}/resources/${id}/download`
+    return `${import.meta.env.VITE_API_BASE_URL}/files/${id}/download?dl=1`
   }
 }

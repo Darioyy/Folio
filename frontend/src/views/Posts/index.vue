@@ -17,7 +17,7 @@
         >
           <h3 class="post-title">{{ post.title }}</h3>
           <div class="post-meta">
-            <el-tag size="small">{{ post.category_name || '未分类' }}</el-tag>
+            <el-tag size="small">{{ post.category_name || '未分配专栏' }}</el-tag>
             <span class="meta-item">
               <el-icon><User /></el-icon>
               {{ post.author_name || '匿名' }}

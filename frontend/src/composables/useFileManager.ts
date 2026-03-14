@@ -1,6 +1,6 @@
 import { ref, computed, reactive } from 'vue'
 import type { Ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { filesApi } from '@/api/modules/files'
 import { groupsApi } from '@/api/modules/groups'
 import { hubApi } from '@/api/modules/hub'
@@ -34,7 +34,10 @@ export function useFileManager(currentFolderId: Ref<number | null>) {
   const displayFiles = computed(() => {
     const q = searchQuery.value.trim().toLowerCase()
     if (!q) return allFiles.value
-    return allFiles.value.filter(f => f.name.toLowerCase().includes(q))
+    return allFiles.value.filter(f =>
+      f.file_name.toLowerCase().includes(q) ||
+      (f.title && f.title.toLowerCase().includes(q))
+    )
   })
   const previewVisible = ref(false)
   const currentFile = ref<FileItem | null>(null)
@@ -54,7 +57,7 @@ export function useFileManager(currentFolderId: Ref<number | null>) {
   const editLoading = ref(false)
   const editTargetId = ref<number | null>(null)
   const editForm = reactive({
-    description: '', targetGroupId: undefined as number | undefined,
+    title: '', description: '', fileName: '', targetGroupId: undefined as number | undefined,
   })
 
   // Folder tree for move/edit dialogs
@@ -96,7 +99,8 @@ export function useFileManager(currentFolderId: Ref<number | null>) {
       const res = await filesApi.getList({
         page_size: 200,
         ...(cat ? { category: cat as 'image' | 'video' | 'document' } : {}),
-        ...(folderId !== null ? { group_id: folderId } : {}),
+        // group_id: -1 = 根目录未分组文件；正整数 = 指定文件夹
+        group_id: folderId !== null ? folderId : -1,
       })
       allFiles.value = res.items
     } catch { ElMessage.error('加载文件失败') } finally {
@@ -165,7 +169,9 @@ export function useFileManager(currentFolderId: Ref<number | null>) {
 
   function openEdit(file: FileItem) {
     editTargetId.value = file.id
+    editForm.title = file.title || ''
     editForm.description = file.description || ''
+    editForm.fileName = file.file_name || ''
     editForm.targetGroupId = undefined
     loadFolderTree()
     editDialogVisible.value = true
@@ -175,8 +181,12 @@ export function useFileManager(currentFolderId: Ref<number | null>) {
     if (!editTargetId.value) return
     editLoading.value = true
     try {
+      const original = allFiles.value.find(f => f.id === editTargetId.value)
+      const fileNameChanged = editForm.fileName.trim() && editForm.fileName.trim() !== original?.file_name
       const res = await filesApi.update(editTargetId.value, {
+        title: editForm.title.trim() || undefined,
         description: editForm.description.trim() || undefined,
+        file_name: fileNameChanged ? editForm.fileName.trim() : undefined,
       })
       const idx = allFiles.value.findIndex(f => f.id === editTargetId.value)
       if (idx >= 0) allFiles.value[idx] = { ...allFiles.value[idx], ...res.data }
@@ -228,7 +238,28 @@ export function useFileManager(currentFolderId: Ref<number | null>) {
       uploadDialogVisible.value = false
       await loadFiles()
       loadOverview()
-    } catch { /* 拦截器展示 */ } finally {
+    } catch (err: any) {
+      const code = err?.response?.data?.error?.code
+      if (code === 'DUPLICATE_FILE') {
+        const fileName = uploadForm.file?.name || '该文件'
+        try {
+          await ElMessageBox.confirm(
+            `「${fileName}」已存在，是否覆盖上传？`,
+            '文件已存在',
+            { confirmButtonText: '覆盖上传', cancelButtonText: '取消', type: 'warning' }
+          )
+          formData.append('overwrite', 'true')
+          uploading.value = true
+          uploadProgress.value = 0
+          await filesApi.uploadWithProgress(formData, p => { uploadProgress.value = p })
+          ElMessage.success('上传成功（已覆盖）')
+          uploadDialogVisible.value = false
+          await loadFiles()
+          loadOverview()
+        } catch { /* 用户取消 */ }
+      }
+      // 其他错误由拦截器展示
+    } finally {
       uploading.value = false
       uploadProgress.value = 0
     }

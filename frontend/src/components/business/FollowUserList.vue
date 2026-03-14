@@ -20,7 +20,7 @@
               {{ user.nickname || user.username }}
               <el-tag v-if="user.is_root === 1 || user.is_root === true" type="danger" size="small">ROOT</el-tag>
               <el-tag v-else-if="user.is_admin === 1 || user.is_admin === true" type="warning" size="small">ADMIN</el-tag>
-              <el-tag v-if="user.is_mutual" type="success" size="small">互相关注</el-tag>
+              <el-tag v-if="user.is_mutual && props.isOwnList" type="success" size="small">互相关注</el-tag>
             </div>
             <div class="user-meta">
               <span>{{ user.followers_count || 0 }} 粉丝</span>
@@ -81,6 +81,7 @@ interface Props {
   users: User[]
   loading?: boolean
   showFollowButton?: boolean
+  isOwnList?: boolean  // true = viewer is the profile owner
 }
 
 interface Emits {
@@ -89,7 +90,8 @@ interface Emits {
 
 const props = withDefaults(defineProps<Props>(), {
   loading: false,
-  showFollowButton: true
+  showFollowButton: true,
+  isOwnList: false
 })
 
 const emit = defineEmits<Emits>()
@@ -175,13 +177,13 @@ function goToUserProfile(username: string) {
   transition: all 0.2s;
 
   html.dark & {
-    background: #1e293b;
-    border-color: #334155;
+    background: #1c1f26;
+    border-color: #2d3242;
   }
 
   &:hover {
-    border-color: #6366f1;
-    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
+    border-color: #5a67d8;
+    box-shadow: 0 2px 8px rgba(90, 103, 216, 0.1);
 
     html.dark & {
       border-color: #8b5cf6;

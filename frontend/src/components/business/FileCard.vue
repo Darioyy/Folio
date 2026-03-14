@@ -9,10 +9,12 @@ import FileTypeIcon from './FileTypeIcon.vue'
 interface Props {
   file: FileItem
   showAuthor?: boolean
+  showThumbnail?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showAuthor: true,
+  showThumbnail: true,
 })
 
 defineEmits<{
@@ -54,40 +56,52 @@ function handleAuthorClick(e: MouseEvent) {
   <div class="file-card" @click="$emit('click', file)">
     <!-- 缩略图区（固定 16:9） -->
     <div class="thumbnail-wrap">
-      <!-- 图片 -->
-      <img
-        v-if="file.file_category === 'image' && thumbnailSrc && !imgError"
-        :src="thumbnailSrc"
-        :alt="file.file_name"
-        class="thumbnail-img"
-        loading="lazy"
-        @error="imgError = true"
-      />
-      <!-- 视频 -->
-      <template v-else-if="file.file_category === 'video'">
-        <img
-          v-if="videoThumbSrc"
-          :src="videoThumbSrc"
-          :alt="file.file_name"
-          class="thumbnail-img"
-          loading="lazy"
-          @error="videoThumbError = true"
-        />
-        <div v-else class="icon-placeholder">
-          <el-icon :size="40" class="placeholder-icon"><VideoPlay /></el-icon>
-        </div>
-        <div class="play-overlay">
-          <el-icon :size="28"><VideoPlay /></el-icon>
-        </div>
-      </template>
-      <!-- 文档 / 资源 -->
-      <div v-else class="icon-placeholder">
+      <!-- 统一图标模式（Space 云盘视图） -->
+      <div v-if="!showThumbnail" class="icon-placeholder">
         <FileTypeIcon
           :mime-type="file.mime_type"
           :file-name="file.file_name"
+          :file-category="file.file_category"
           size="md"
         />
       </div>
+      <!-- 缩略图模式（搜索等场景） -->
+      <template v-else>
+        <!-- 图片 -->
+        <img
+          v-if="file.file_category === 'image' && thumbnailSrc && !imgError"
+          :src="thumbnailSrc"
+          :alt="file.file_name"
+          class="thumbnail-img"
+          loading="lazy"
+          @error="imgError = true"
+        />
+        <!-- 视频 -->
+        <template v-else-if="file.file_category === 'video'">
+          <img
+            v-if="videoThumbSrc"
+            :src="videoThumbSrc"
+            :alt="file.file_name"
+            class="thumbnail-img"
+            loading="lazy"
+            @error="videoThumbError = true"
+          />
+          <div v-else class="icon-placeholder">
+            <el-icon :size="40" class="placeholder-icon"><VideoPlay /></el-icon>
+          </div>
+          <div class="play-overlay">
+            <el-icon :size="28"><VideoPlay /></el-icon>
+          </div>
+        </template>
+        <!-- 文档 / 资源 -->
+        <div v-else class="icon-placeholder">
+          <FileTypeIcon
+            :mime-type="file.mime_type"
+            :file-name="file.file_name"
+            size="md"
+          />
+        </div>
+      </template>
     </div>
 
     <!-- 内容区 -->
@@ -210,7 +224,7 @@ function handleAuthorClick(e: MouseEvent) {
 
       &:hover {
         color: $color-primary;
-        background: rgba(99, 102, 241, 0.08);
+        background: rgba(90, 103, 216, 0.08);
       }
     }
 

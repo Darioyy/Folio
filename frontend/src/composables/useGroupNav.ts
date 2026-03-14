@@ -151,10 +151,9 @@ export function useGroupNav() {
     creatingGroup.value = false
     if (!name) return
     try {
-      const res = await groupsApi.create(name)
+      await groupsApi.create(name)
       await loadRootGroups()
-      if (res.data) await navigateIntoRoot(res.data)
-    } catch { ElMessage.error('创建文件夹失败') }
+    } catch (e: any) { ElMessage.error(e?.response?.data?.error?.message || '创建文件夹失败') }
   }
 
   function cancelCreateGroup() { creatingGroup.value = false; newGroupName.value = '' }
@@ -174,14 +173,13 @@ export function useGroupNav() {
     try {
       if (currentFolderId.value === null) {
         // 根目录层级：创建根文件夹
-        const res = await groupsApi.create(name)
+        await groupsApi.create(name)
         await loadRootGroups()
-        if (res.data) await navigateIntoRoot(res.data)
       } else {
         await groupsApi.create(name, currentFolderId.value)
         await loadSubFolders()
       }
-    } catch { ElMessage.error('创建文件夹失败') }
+    } catch (e: any) { ElMessage.error(e?.response?.data?.error?.message || '创建文件夹失败') }
   }
 
   function cancelCreateSubFolder() { creatingSubFolder.value = false; newSubFolderName.value = '' }

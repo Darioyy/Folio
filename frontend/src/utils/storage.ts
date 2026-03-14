@@ -1,4 +1,3 @@
-const TOKEN_KEY = 'auth_token'
 const USER_KEY = 'user_info'
 const DARK_MODE_KEY = 'dark_mode'
 
@@ -6,23 +5,15 @@ const DARK_MODE_KEY = 'dark_mode'
  * 存储工具
  */
 export const storage = {
-  // Token 相关
-  getToken(): string | null {
-    return localStorage.getItem(TOKEN_KEY)
-  },
-
-  setToken(token: string): void {
-    localStorage.setItem(TOKEN_KEY, token)
-  },
-
-  removeToken(): void {
-    localStorage.removeItem(TOKEN_KEY)
-  },
-
   // 用户信息相关
   getUser(): any {
-    const user = localStorage.getItem(USER_KEY)
-    return user ? JSON.parse(user) : null
+    try {
+      const user = localStorage.getItem(USER_KEY)
+      return user ? JSON.parse(user) : null
+    } catch {
+      localStorage.removeItem(USER_KEY)
+      return null
+    }
   },
 
   setUser(user: any): void {
@@ -47,7 +38,6 @@ export const storage = {
 
   // 清空所有
   clear(): void {
-    localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(USER_KEY)
   }
 }

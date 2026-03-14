@@ -3,14 +3,18 @@
 合并 /media 和 /resources 上传/管理，统一走 files 表
 """
 import os
+import re
 from flask import Blueprint, request, g, send_file
 from werkzeug.utils import secure_filename
+from sqlalchemy import select
 
 from db.session import db as db_session
 from core.models.user import User
+from core.models.file import File
 from core.schemas.file import FileCreate, FileUpdate
 from core.services.file_service import FileService
 from core.services.group_service import GroupService
+from core.services.system_service import SystemService
 from core.utils.validators import login_required
 from core.utils.response import success_response, error_response, pagination_response
 from core.utils.permissions import require_admin, require_root
@@ -19,13 +23,24 @@ from config.default import Config
 
 bp = Blueprint('files_v1', __name__)
 
-# 各分类对应的扩展名白名单 key（来自 Config.ALLOWED_EXTENSIONS）
-_EXT_KEY = {
-    'image':    'images',
-    'video':    'videos',
-    'document': 'documents',
-    'resource': 'documents',
-}
+
+def safe_filename(filename: str) -> str:
+    """
+    保留更多字符的文件名清理函数（替代 werkzeug secure_filename）。
+    保留：Unicode 字母/数字/中文、空格、+ - _ . ( ) [ ] { } # @ !
+    删除：路径分隔符、控制字符、Windows/Unix 不合法字符
+    """
+    # 移除控制字符和 null 字节
+    filename = ''.join(c for c in filename if ord(c) >= 32 and c != '\x7f')
+    # 移除路径分隔符和文件系统不合法字符
+    filename = re.sub(r'[/\\:*?"<>|\n\r\t]', '_', filename)
+    # 去掉首尾空白和点（避免隐藏文件 / Windows 尾部点问题）
+    filename = filename.strip(' ')
+    filename = filename.lstrip('.')
+    filename = filename.rstrip('.')
+    # 合并连续下划线（超过 3 个）
+    filename = re.sub(r'_{4,}', '___', filename)
+    return filename or 'file'
 
 # 各分类对应的上传子目录
 _SUBDIR = {
@@ -33,6 +48,14 @@ _SUBDIR = {
     'video':    'media/videos',
     'document': 'documents',
     'resource': 'resources',
+}
+
+# 各分类允许的 MIME 前缀（空 tuple = 不限制）
+_CATEGORY_MIME_PREFIX: dict[str, tuple[str, ...]] = {
+    'image':    ('image/',),
+    'video':    ('video/',),
+    'document': ('application/', 'text/'),
+    'resource': (),
 }
 
 
@@ -120,10 +143,42 @@ def upload_file():
     if category not in ('image', 'video', 'document', 'resource'):
         return error_response('INVALID_PARAMS', 'category 必须是 image/video/document/resource', 400)
 
-    # 验证扩展名
-    allowed = Config.ALLOWED_EXTENSIONS.get(_EXT_KEY[category], set())
+    # 从系统配置读取全局白名单（空列表 = 禁止所有上传）
+    sys_cfg = SystemService.load_config()
+    allowed_str = sys_cfg.get('allowed_extensions', '').strip()
+    if not allowed_str:
+        return error_response('UPLOAD_DISABLED', '系统当前未配置允许上传的文件类型，请联系管理员', 403)
+    allowed = {ext.strip().lower() for ext in allowed_str.split(',') if ext.strip()}
     if not FileService.allowed_file(file.filename, allowed):
-        return error_response('INVALID_FILE_TYPE', f'不支持的文件类型，允许: {allowed}', 400)
+        ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else '（无后缀）'
+        return error_response('INVALID_FILE_TYPE', f'不支持的文件类型 .{ext}，请上传白名单内的格式', 400)
+
+    # MIME 类型与 category 一致性检查（防止扩展名欺骗）
+    mime = (file.mimetype or '').lower()
+    allowed_prefixes = _CATEGORY_MIME_PREFIX.get(category, ())
+    if allowed_prefixes and not any(mime.startswith(p) for p in allowed_prefixes):
+        return error_response('INVALID_FILE_TYPE', f'文件 MIME 类型（{mime}）与所选分类（{category}）不符', 400)
+
+    # 重名检查（含后缀精确匹配）
+    original_name = safe_filename(file.filename)
+    overwrite = request.form.get('overwrite', 'false').lower() == 'true'
+    dup_stmt = select(File.id).where(
+        File.user_id == g.user_id,
+        File.file_name == original_name,
+    )
+    if group_id is None:
+        dup_stmt = dup_stmt.where(File.group_id.is_(None))
+    else:
+        dup_stmt = dup_stmt.where(File.group_id == group_id)
+    existing_id = db_session.session.execute(dup_stmt).scalar_one_or_none()
+    if existing_id is not None:
+        if not overwrite:
+            return error_response('DUPLICATE_FILE', f'当前文件夹中已存在同名文件「{original_name}」', 409)
+        # overwrite=true：先删除旧文件（允许失败）
+        try:
+            FileService.delete(existing_id, g.user_id, db_session.session, Config.UPLOAD_FOLDER)
+        except Exception:
+            pass
 
     # ⚠️ 存储配额检查（后端强制，Root 无限制）
     # 重要原则：安全相关的限制必须在后端校验，前端检查可被直接 API 调用绕过
@@ -140,7 +195,7 @@ def upload_file():
     unique_filename = FileService.generate_unique_filename(file.filename)
     full_path = os.path.join(upload_dir, unique_filename)
     file.save(full_path)
-    auto_title = secure_filename(file.filename)
+    auto_title = safe_filename(file.filename)
 
     file_size = os.path.getsize(full_path)
     mime_type = file.mimetype or 'application/octet-stream'
@@ -177,7 +232,7 @@ def upload_file():
                 visibility='private',
             ),
             file_path=relative_path,
-            file_name=secure_filename(file.filename),
+            file_name=safe_filename(file.filename),
             file_size=file_size,
             mime_type=mime_type,
             user_id=g.user_id,
@@ -207,7 +262,10 @@ def update_file(file_id: int):
         updated = FileService.update(file_id, data, g.user_id, db_session.session)
         return success_response(updated.to_dict(include_user=True), '更新成功')
     except ValueError as e:
-        return error_response('NOT_FOUND', str(e), 404)
+        msg = str(e)
+        if '不存在' in msg:
+            return error_response('NOT_FOUND', msg, 404)
+        return error_response('INVALID_PARAMS', msg, 400)
     except PermissionError as e:
         return error_response('FORBIDDEN', str(e), 403)
 
@@ -240,6 +298,66 @@ def update_file_group(file_id: int):
         return error_response('NOT_FOUND', str(e), 404)
     except PermissionError as e:
         return error_response('FORBIDDEN', str(e), 403)
+
+
+@bp.route('/<int:file_id>/download', methods=['GET'])
+@login_required
+def download_file(file_id: int):
+    """
+    下载或内联预览文件（仅文件所有者或 Root 可访问）
+
+    Query:
+        dl=1  强制下载（Content-Disposition: attachment），否则内联预览
+    """
+    file = FileService.get_by_id(file_id, db_session.session)
+    if not file:
+        return error_response('FILE_NOT_FOUND', '文件不存在', 404)
+
+    if g.user_id != file.user_id and not require_root(g.user_id, db_session.session):
+        return error_response('FORBIDDEN', '无权访问此文件', 403)
+
+    upload_root = os.path.realpath(os.path.abspath(Config.UPLOAD_FOLDER))
+    file_abs = os.path.realpath(os.path.join(upload_root, file.file_path))
+    if not file_abs.startswith(upload_root + os.sep):
+        return error_response('FORBIDDEN', '非法的文件路径', 403)
+    if not os.path.exists(file_abs):
+        return error_response('FILE_NOT_FOUND', '文件不在磁盘上', 404)
+
+    as_attachment = request.args.get('dl', '0') == '1'
+    return send_file(
+        file_abs,
+        mimetype=file.mime_type or 'application/octet-stream',
+        as_attachment=as_attachment,
+        download_name=file.file_name,
+    )
+
+
+@bp.route('/<int:file_id>/thumbnail', methods=['GET'])
+def view_thumbnail(file_id: int):
+    """
+    查看缩略图（图片/视频封面）
+    - 文件所有者或 Root 可访问
+    - 图片：直接返回原图
+    - 视频：返回提取的封面图，无封面则返回原文件
+    """
+    from flask import session as flask_session
+    file = FileService.get_by_id(file_id, db_session.session)
+    if not file:
+        return error_response('FILE_NOT_FOUND', '文件不存在', 404)
+
+    current_user_id = flask_session.get('user_id')
+    if not current_user_id or (current_user_id != file.user_id and not require_root(current_user_id, db_session.session)):
+        return error_response('FORBIDDEN', '无权访问此文件', 403)
+
+    upload_root = os.path.realpath(os.path.abspath(Config.UPLOAD_FOLDER))
+    thumb_rel = file.thumbnail_path or file.file_path
+    thumb_abs = os.path.realpath(os.path.join(upload_root, thumb_rel))
+    if not thumb_abs.startswith(upload_root + os.sep):
+        return error_response('FORBIDDEN', '非法的文件路径', 403)
+    if not os.path.exists(thumb_abs):
+        return error_response('FILE_NOT_FOUND', '文件不在磁盘上', 404)
+
+    return send_file(thumb_abs, mimetype=file.mime_type or 'image/jpeg')
 
 
 @bp.route('/sort', methods=['PATCH'])

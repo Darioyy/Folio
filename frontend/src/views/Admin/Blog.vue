@@ -7,7 +7,7 @@
             <el-input v-model="searchUsername" placeholder="按用户名搜索" clearable style="width:200px" @keyup.enter="handleSearch" @clear="handleSearch">
               <template #prefix><el-icon><Search /></el-icon></template>
             </el-input>
-            <el-select v-model="filterCategory" placeholder="全部分类" clearable style="width:150px" @change="handleSearch">
+            <el-select v-model="filterCategory" placeholder="全部专栏" clearable style="width:150px" @change="handleSearch">
               <el-option v-for="cat in categories" :key="cat.id" :label="cat.name" :value="cat.id" />
             </el-select>
             <el-button type="primary" @click="handleSearch">查询</el-button>
@@ -30,7 +30,7 @@
             <el-table-column label="作者" width="110">
               <template #default="{ row }"><span class="cell-secondary">{{ row.author_nickname || row.author_name }}</span></template>
             </el-table-column>
-            <el-table-column label="分类" width="100">
+            <el-table-column label="专栏" width="100">
               <template #default="{ row }">
                 <el-tag v-if="row.category_name" size="small" effect="plain">{{ row.category_name }}</el-tag>
                 <span v-else class="text-muted">—</span>
@@ -59,7 +59,7 @@
               </template>
             </el-table-column>
             <el-table-column label="时间" width="100">
-              <template #default="{ row }"><span class="cell-secondary">{{ formatDate(row.published_at || row.created_at) }}</span></template>
+              <template #default="{ row }"><span class="cell-secondary">{{ formatDate(row.published_at || row.created_at, 'YYYY-MM-DD') }}</span></template>
             </el-table-column>
             <el-table-column label="操作" width="110" fixed="right">
               <template #default="{ row }">
@@ -87,20 +87,34 @@
         </el-card>
       </el-tab-pane>
 
-      <el-tab-pane label="分类管理" name="categories">
+      <el-tab-pane label="专栏管理" name="categories">
         <el-card>
           <div class="cat-header">
-            <el-button type="primary" size="small" :icon="PlusIcon" @click="openAddCategory">新增分类</el-button>
+            <el-button type="primary" size="small" :icon="PlusIcon" @click="openAddCategory">新增专栏</el-button>
           </div>
           <el-table :data="categories" v-loading="catsLoading" style="width:100%">
-            <el-table-column label="分类名称" prop="name" min-width="140" />
-            <el-table-column label="描述" prop="description" show-overflow-tooltip />
-            <el-table-column label="文章数" prop="post_count" width="90" />
+            <el-table-column label="专栏" min-width="200">
+              <template #default="{ row }">
+                <div class="cat-cell">
+                  <div class="cat-avatar" :style="{ background: getCatColor(row.name) }">
+                    <img v-if="row.avatar_url" :src="row.avatar_url" />
+                    <span v-else>{{ row.name?.[0] }}</span>
+                  </div>
+                  <div class="cat-name-wrap">
+                    <span class="cat-name">{{ row.name }}</span>
+                    <span v-if="row.description" class="cat-desc">{{ row.description }}</span>
+                  </div>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="文章数" prop="post_count" width="90">
+              <template #default="{ row }"><span class="cell-secondary">{{ row.post_count || 0 }}</span></template>
+            </el-table-column>
             <el-table-column label="操作" width="100" fixed="right">
               <template #default="{ row }">
                 <div class="action-btns">
                   <el-tooltip content="编辑"><el-button text :icon="EditIcon" size="small" @click="openEditCategory(row)" /></el-tooltip>
-                  <el-popconfirm title="确认删除该分类？" confirm-button-text="删除" confirm-button-type="danger" @confirm="deleteCategory(row.id)">
+                  <el-popconfirm title="确认删除该专栏？" confirm-button-text="删除" confirm-button-type="danger" @confirm="deleteCategory(row.id)">
                     <template #reference><el-button text :icon="DeleteIcon" class="btn-danger" size="small" /></template>
                   </el-popconfirm>
                 </div>
@@ -111,10 +125,25 @@
       </el-tab-pane>
     </el-tabs>
 
-    <!-- 分类 Dialog -->
-    <el-dialog v-model="catDialogVisible" :title="editingCat ? '编辑分类' : '新增分类'" width="400px">
+    <!-- 专栏 Dialog -->
+    <el-dialog v-model="catDialogVisible" :title="editingCat ? '编辑专栏' : '新增专栏'" width="420px">
       <el-form :model="catForm" label-width="70px">
-        <el-form-item label="名称"><el-input v-model="catForm.name" placeholder="分类名称" /></el-form-item>
+        <el-form-item label="图标">
+          <div class="avatar-uploader" @click="catAvatarInputRef?.click()">
+            <div class="avatar-preview" :style="{ background: getCatColor(catForm.name || '?') }">
+              <img v-if="catAvatarPreview" :src="catAvatarPreview" />
+              <img v-else-if="editingCat?.avatar_url" :src="editingCat.avatar_url" />
+              <span v-else-if="catForm.name">{{ catForm.name[0] }}</span>
+              <svg v-else viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="white" stroke-width="1.6" stroke-linecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>
+            </div>
+            <div class="avatar-hint">
+              <span>点击上传图标</span>
+              <span class="hint-sub">建议 64×64，支持 JPG/PNG</span>
+            </div>
+          </div>
+          <input ref="catAvatarInputRef" type="file" accept="image/*" style="display:none" @change="handleCatAvatar" />
+        </el-form-item>
+        <el-form-item label="名称"><el-input v-model="catForm.name" placeholder="专栏名称" /></el-form-item>
         <el-form-item label="描述"><el-input v-model="catForm.description" type="textarea" :rows="2" placeholder="可选描述" /></el-form-item>
       </el-form>
       <template #footer>
@@ -182,7 +211,7 @@ interface PostRow {
   comment_count: number; collect_count: number; published_at: string; created_at: string
   is_hidden: number; hide_reason: string; review_status: 'none' | 'pending' | 'rejected'; appeal_reason: string
 }
-interface Category { id: number; name: string; description?: string; post_count?: number }
+interface Category { id: number; name: string; description?: string; avatar_url?: string; post_count?: number }
 
 const activeTab = ref('posts')
 const posts = ref<PostRow[]>([])
@@ -198,6 +227,9 @@ const catDialogVisible = ref(false)
 const catSaving = ref(false)
 const editingCat = ref<Category | null>(null)
 const catForm = reactive({ name: '', description: '' })
+const catAvatarFile = ref<File | null>(null)
+const catAvatarPreview = ref('')
+const catAvatarInputRef = ref<HTMLInputElement | null>(null)
 const visDialogVisible = ref(false)
 const visTarget = ref<PostRow | null>(null)
 const visReason = ref('')
@@ -209,6 +241,20 @@ const reviewSaving = ref(false)
 const showRejectReason = ref(false)
 
 const fmtNum = (n: number) => !n ? '0' : n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k' : String(n)
+
+function getCatColor(name: string): string {
+  const palette = ['#5a67d8','#7c3aed','#2563eb','#0891b2','#059669','#d97706','#dc2626','#db2777']
+  let hash = 0
+  for (const c of name) hash = (hash * 31 + c.charCodeAt(0)) & 0xFFFFFFFF
+  return palette[Math.abs(hash) % palette.length]
+}
+
+function handleCatAvatar(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  catAvatarFile.value = file
+  catAvatarPreview.value = URL.createObjectURL(file)
+}
 
 async function loadPosts() {
   postsLoading.value = true
@@ -254,14 +300,32 @@ async function handleReview(action: 'approve' | 'reject') {
   } catch { ElMessage.error('操作失败') } finally { reviewSaving.value = false }
 }
 
-function openAddCategory() { editingCat.value = null; catForm.name = ''; catForm.description = ''; catDialogVisible.value = true }
-function openEditCategory(cat: Category) { editingCat.value = cat; catForm.name = cat.name; catForm.description = cat.description || ''; catDialogVisible.value = true }
+function openAddCategory() {
+  editingCat.value = null; catForm.name = ''; catForm.description = ''
+  catAvatarFile.value = null; catAvatarPreview.value = ''; catDialogVisible.value = true
+}
+function openEditCategory(cat: Category) {
+  editingCat.value = cat; catForm.name = cat.name; catForm.description = cat.description || ''
+  catAvatarFile.value = null; catAvatarPreview.value = ''; catDialogVisible.value = true
+}
 
 async function saveCategory() {
-  if (!catForm.name.trim()) { ElMessage.warning('分类名称不能为空'); return }
+  if (!catForm.name.trim()) { ElMessage.warning('专栏名称不能为空'); return }
   catSaving.value = true
   try {
-    editingCat.value ? await postsApi.updateCategory(editingCat.value.id, catForm) : await postsApi.createCategory(catForm)
+    let savedId: number
+    if (editingCat.value) {
+      await postsApi.updateCategory(editingCat.value.id, catForm)
+      savedId = editingCat.value.id
+    } else {
+      const res = await postsApi.createCategory(catForm)
+      savedId = (res.data as any)?.id
+    }
+    // 上传头像（如有）
+    if (catAvatarFile.value && savedId) {
+      const fd = new FormData(); fd.append('file', catAvatarFile.value)
+      await postsApi.uploadCategoryAvatar(savedId, fd).catch(() => {})
+    }
     ElMessage.success('保存成功'); catDialogVisible.value = false; loadCategories()
   } catch { ElMessage.error('保存失败') } finally { catSaving.value = false }
 }
@@ -302,6 +366,34 @@ onMounted(() => { loadPosts(); loadCategories() })
 
 .pagination-wrap { margin-top: $spacing-md; display: flex; justify-content: flex-end; }
 .cat-header { margin-bottom: $spacing-md; }
+
+// 专栏列表
+.cat-cell { display: flex; align-items: center; gap: 10px; }
+.cat-avatar {
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700; color: white; overflow: hidden; position: relative;
+  img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  span { user-select: none; }
+}
+.cat-name-wrap { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cat-name { font-size: $font-sm; font-weight: 500; color: var(--el-text-color-primary); }
+.cat-desc { font-size: 11px; color: var(--el-text-color-placeholder); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+
+// 头像上传
+.avatar-uploader {
+  display: flex; align-items: center; gap: 12px; cursor: pointer;
+  &:hover .avatar-preview { opacity: 0.82; }
+}
+.avatar-preview {
+  width: 48px; height: 48px; border-radius: 10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 700; color: white; overflow: hidden; position: relative;
+  transition: opacity $transition-fast;
+  img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+}
+.avatar-hint { display: flex; flex-direction: column; gap: 3px; font-size: 13px; color: var(--el-text-color-secondary); }
+.hint-sub { font-size: 11px; color: var(--el-text-color-placeholder); }
 
 .dialog-post-title { font-size: $font-sm; font-weight: 500; color: var(--el-text-color-primary); margin: 0 0 $spacing-md; line-height: 1.5; }
 .dialog-hint { font-size: 13px; color: var(--el-text-color-secondary); margin: 0; line-height: 1.6; }

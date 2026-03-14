@@ -35,38 +35,78 @@
         <el-icon><FolderOpened /></el-icon>
         文件统计
       </div>
-      <div class="stats-grid">
-        <div class="stats-cell">
-          <el-icon class="stats-icon image-icon"><Picture /></el-icon>
-          <span class="stats-num">{{ myStats.media }}</span>
-          <span class="stats-label">媒体</span>
+      <div class="stats-row">
+        <div class="stats-item">
+          <span class="stats-num image-num">{{ myStats.media }}</span>
+          <span class="stats-label">媒体文件</span>
         </div>
-        <div class="stats-cell">
-          <el-icon class="stats-icon resource-icon"><Folder /></el-icon>
-          <span class="stats-num">{{ myStats.resources }}</span>
-          <span class="stats-label">资源</span>
+        <div class="stats-item">
+          <span class="stats-num resource-num">{{ myStats.resources }}</span>
+          <span class="stats-label">其他资源</span>
         </div>
-        <div class="stats-cell">
-          <el-icon class="stats-icon post-icon"><Document /></el-icon>
-          <span class="stats-num">{{ myStats.posts }}</span>
-          <span class="stats-label">文章</span>
+        <div class="stats-item">
+          <span class="stats-num post-num">{{ myStats.posts }}</span>
+          <span class="stats-label">发布文章</span>
         </div>
       </div>
     </div>
 
+    <!-- 最近活动 -->
+    <div class="settings-card">
+      <div class="card-title">
+        <el-icon><Clock /></el-icon>
+        最近活动
+      </div>
+      <div v-if="activityLoading" class="activity-skeleton">
+        <el-skeleton v-for="i in 3" :key="i" :rows="1" animated style="margin-bottom: 10px" />
+      </div>
+      <div v-else-if="recentActivity.length === 0" class="activity-empty">
+        暂无最近活动
+      </div>
+      <div v-else class="activity-list">
+        <div
+          v-for="item in recentActivity"
+          :key="item.id + item.type"
+          class="activity-item"
+          @click="goToActivity(item)"
+        >
+          <div class="activity-dot" :class="item.type"></div>
+          <div class="activity-body">
+            <span class="activity-action">{{ item.action }}</span>
+            <span class="activity-name">{{ item.name }}</span>
+          </div>
+          <span class="activity-time">{{ item.timeStr }}</span>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, onActivated } from 'vue'
-import { Coin, FolderOpened, Picture, Folder, Document } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
+import { Coin, FolderOpened, Picture, Folder, Document, Clock } from '@element-plus/icons-vue'
 import { hubApi } from '@/api/modules/hub'
 import { usersApi } from '@/api/modules/users'
+import { postsApi } from '@/api/modules/posts'
 import type { StorageInfo } from '@/api/modules/hub'
 import type { MyStats } from '@/api/modules/users'
+import { fromNow } from '@/utils/format'
 
+interface ActivityItem {
+  id: number
+  type: 'post' | 'file'
+  name: string
+  action: string
+  timeStr: string
+  path: string
+}
+
+const router = useRouter()
 const storageInfo = ref<StorageInfo | null>(null)
 const myStats = reactive<MyStats>({ posts: 0, media: 0, resources: 0, total_size: 0 })
+const recentActivity = ref<ActivityItem[]>([])
+const activityLoading = ref(false)
 
 async function loadOverview() {
   try {
@@ -85,8 +125,62 @@ async function loadOverview() {
   } catch { /* 静默失败 */ }
 }
 
-onMounted(loadOverview)
-onActivated(loadOverview)
+async function loadRecentActivity() {
+  activityLoading.value = true
+  try {
+    const [postsRes, filesRes] = await Promise.allSettled([
+      postsApi.getMyPosts({ page: 1, page_size: 5 }),
+      hubApi.getUserMedia({ page: 1, page_size: 5 }),
+    ])
+
+    const activities: ActivityItem[] = []
+
+    if (postsRes.status === 'fulfilled' && postsRes.value.data?.items) {
+      for (const p of postsRes.value.data.items) {
+        activities.push({
+          id: p.id,
+          type: 'post',
+          name: p.title,
+          action: p.status === 'published' ? '发布了文章' : '创建了草稿',
+          timeStr: fromNow(p.published_at || p.created_at),
+          path: `/post/${p.id}`,
+        })
+      }
+    }
+
+    if (filesRes.status === 'fulfilled') {
+      for (const f of filesRes.value.items || []) {
+        activities.push({
+          id: f.id,
+          type: 'file',
+          name: f.name,
+          action: '上传了文件',
+          timeStr: fromNow(f.created_at),
+          path: `/file/${f.id}`,
+        })
+      }
+    }
+
+    // 按时间倒序取最新 3 条
+    activities.sort((a, b) => b.id - a.id)
+    recentActivity.value = activities.slice(0, 3)
+  } catch { /* 静默失败 */ } finally {
+    activityLoading.value = false
+  }
+}
+
+function goToActivity(item: ActivityItem) {
+  router.push(item.path)
+}
+
+onMounted(() => {
+  loadOverview()
+  loadRecentActivity()
+})
+onActivated(() => {
+  loadOverview()
+  loadRecentActivity()
+})
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -109,13 +203,13 @@ function formatSize(bytes: number): string {
   display: flex;
   align-items: center;
   gap: $spacing-sm;
-  font-size: $font-base;
+  font-size: $font-sm;
   font-weight: 600;
   color: var(--el-text-color-primary);
   margin-bottom: $spacing-md;
 
   .el-icon {
-    font-size: 18px;
+    font-size: 15px;
     color: $color-primary;
   }
 }
@@ -144,40 +238,118 @@ function formatSize(bytes: number): string {
   }
 }
 
-.stats-grid {
+.stats-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: $spacing-md;
-  text-align: center;
+  gap: 8px;
 }
 
-.stats-cell {
+.stats-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: $spacing-xs;
-  padding: $spacing-md;
-  background: var(--el-fill-color-light);
-  border-radius: $radius-lg;
-}
+  gap: 4px;
+  padding: 16px $spacing-sm 14px;
+  background: var(--el-bg-color);
+  border: 1px solid var(--color-border);
+  border-radius: $radius-md;
+  transition: border-color $transition-fast, background $transition-fast;
 
-.stats-icon {
-  font-size: 28px;
-  &.image-icon { color: #6366f1; }
-  &.resource-icon { color: #f59e0b; }
-  &.post-icon { color: #10b981; }
+  &:hover {
+    border-color: var(--color-text-muted);
+    background: var(--el-fill-color-extra-light);
+  }
 }
 
 .stats-num {
-  font-size: $font-2xl;
+  font-size: $font-xl;
   font-weight: 700;
-  color: var(--el-text-color-primary);
   line-height: 1;
+  font-variant-numeric: tabular-nums;
+
+  &.image-num { color: $color-primary; }
+  &.resource-num { color: $color-warning; }
+  &.post-num { color: $color-success; }
 }
 
 .stats-label {
-  font-size: $font-xs;
-  color: var(--el-text-color-secondary);
+  font-size: 11px;
+  color: var(--el-text-color-placeholder);
+  white-space: nowrap;
 }
 
+// 最近活动
+.activity-skeleton { padding: 4px 0; }
+
+.activity-empty {
+  font-size: $font-sm;
+  color: var(--el-text-color-placeholder);
+  text-align: center;
+  padding: $spacing-md 0;
+}
+
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.activity-item {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  padding: 9px 0;
+  cursor: pointer;
+  border-bottom: 1px solid var(--el-border-color-extra-light);
+  transition: background $transition-fast;
+
+  &:last-child { border-bottom: none; }
+
+  &:hover .activity-name { color: $color-primary; }
+}
+
+.activity-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+
+  &.post { background: $color-primary; }
+  &.file { background: $color-warning; }
+}
+
+.activity-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  overflow: hidden;
+}
+
+.activity-action {
+  font-size: $font-xs;
+  color: var(--el-text-color-secondary);
+  flex-shrink: 0;
+}
+
+.activity-name {
+  font-size: $font-sm;
+  color: var(--el-text-color-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color $transition-fast;
+}
+
+.activity-time {
+  font-size: 11px;
+  color: var(--el-text-color-placeholder);
+  flex-shrink: 0;
+}
+
+.overview-zone {
+  padding: $spacing-lg 0;
+  min-height: calc(100vh - 52px);
+}
 </style>

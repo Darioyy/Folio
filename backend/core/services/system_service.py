@@ -27,8 +27,10 @@ _DEFAULT_CONFIG = {
     "storage_quota_admin": 5368709120,   # 5 GB
     "storage_quota_user": 1073741824,    # 1 GB
     "max_file_size": 16777216,
-    "allowed_extensions": "png,jpg,jpeg,gif,webp,mp4,webm,avi,pdf,doc,docx,txt,md,zip,rar",
-    "invite_codes": []
+    "allowed_extensions": "txt,md,pdf,doc,docx,xls,xlsx,ppt,pptx,csv,json,xml,jpg,jpeg,png,gif,webp,bmp,svg,tif,tiff,mp3,wav,aac,flac,m4a,mp4,m4v,webm,avi,mov,mkv,wmv,flv,zip,rar,7z",
+    "invite_codes": [],
+    "site_bio": "私有云盘 + 轻博客社区。记录生活，分享想法。",
+    "site_contact": "",
 }
 
 

@@ -38,13 +38,12 @@ class User(db.Model):
         {'comment': '用户表'}
     )
 
-    def to_dict(self):
-        """转换为字典"""
-        return {
+    def to_dict(self, show_email: bool = False):
+        """转换为字典。show_email=True 时才包含 email（仅用于用户自己或管理员）。"""
+        d = {
             'id': self.id,
             'uid': self.uid,
             'username': self.username,
-            'email': self.email,
             'avatar': self.avatar,
             'nickname': self.nickname,
             'signature': self.signature,
@@ -58,8 +57,11 @@ class User(db.Model):
             'privacy_content': self.privacy_content,
             'privacy_follow': self.privacy_follow,
             'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }
+        if show_email:
+            d['email'] = self.email
+        return d
 
     def __repr__(self):
         return f'<User {self.username}>'

@@ -9,7 +9,7 @@ PUT    /groups/<id>              重命名分组
 DELETE /groups/<id>              删除分组（文件解除关联，子分组上移一级）
 PATCH  /groups/sort              更新根分组排序（body: { ids: [1,2,3] }）
 """
-from flask import Blueprint, request, g
+from flask import Blueprint, request, g, current_app
 
 from db.session import db as db_session
 from core.services.group_service import GroupService
@@ -35,8 +35,10 @@ def create_group():
     data = request.get_json() or {}
     name = data.get('name', '')
     parent_id = data.get('parent_id')  # None = 根目录
+    merge = bool(data.get('merge', False))
     try:
-        group = GroupService.create(g.user_id, name, db_session.session, parent_id=parent_id)
+        group = GroupService.create(g.user_id, name, db_session.session,
+                                    parent_id=parent_id, merge=merge)
         return success_response(group.to_dict(), '创建成功', 201)
     except ValueError as e:
         return error_response('INVALID_PARAMS', str(e), 400)
@@ -79,14 +81,19 @@ def get_breadcrumb(group_id: int):
 @groups_bp.route('/<int:group_id>', methods=['PUT'])
 @login_required
 def rename_group(group_id: int):
-    """重命名分组 - body: { name }"""
+    """更新分组信息 - body: { name, description? }"""
     data = request.get_json() or {}
     name = data.get('name', '')
+    description = data.get('description')  # None = 不修改，'' = 清空
     try:
-        group = GroupService.rename(group_id, g.user_id, name, db_session.session)
+        group = GroupService.rename(group_id, g.user_id, name, db_session.session,
+                                    description=description)
         return success_response(group.to_dict(), '更新成功')
     except ValueError as e:
-        return error_response('NOT_FOUND', str(e), 404)
+        msg = str(e)
+        if '不存在' in msg:
+            return error_response('NOT_FOUND', msg, 404)
+        return error_response('INVALID_PARAMS', msg, 400)
     except PermissionError as e:
         return error_response('FORBIDDEN', str(e), 403)
 
@@ -94,15 +101,28 @@ def rename_group(group_id: int):
 @groups_bp.route('/<int:group_id>', methods=['DELETE'])
 @login_required
 def delete_group(group_id: int):
-    """删除分组（?force=true 时递归删除全部子分组和文件，否则仅解除关联）"""
+    """删除分组（?force=true 时递归删除全部子分组和文件（含磁盘），否则仅解除关联）"""
     force = request.args.get('force', 'false').lower() == 'true'
+    upload_folder = current_app.config.get('UPLOAD_FOLDER') if force else None
     try:
-        GroupService.delete(group_id, g.user_id, db_session.session, force=force)
+        GroupService.delete(group_id, g.user_id, db_session.session,
+                            force=force, upload_folder=upload_folder)
         return success_response(message='删除成功')
     except ValueError as e:
         return error_response('NOT_FOUND', str(e), 404)
     except PermissionError as e:
         return error_response('FORBIDDEN', str(e), 403)
+
+
+@groups_bp.route('/<int:group_id>/size', methods=['GET'])
+@login_required
+def get_group_size(group_id: int):
+    """获取分组（含子分组）的递归总大小（字节）"""
+    try:
+        size = GroupService.get_size(group_id, g.user_id, db_session.session)
+        return success_response(size)
+    except ValueError as e:
+        return error_response('NOT_FOUND', str(e), 404)
 
 
 @groups_bp.route('/<int:group_id>/parent', methods=['PATCH'])

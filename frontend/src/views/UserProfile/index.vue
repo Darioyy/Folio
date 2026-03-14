@@ -2,13 +2,13 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Back } from '@element-plus/icons-vue'
+import { Star, ChatLineRound, View as ViewIcon } from '@element-plus/icons-vue'
 import AppHeader from '@/components/common/AppHeader.vue'
-import PostCard from '@/components/business/PostCard.vue'
 import { useUserStore } from '@/stores/user'
 import { usersApi } from '@/api/modules/users'
 import type { UserPublicInfo } from '@/api/modules/users'
 import type { Post } from '@/types/models'
+import { fromNow, getFileUrl } from '@/utils/format'
 
 const PAGE_SIZE = 12
 const route = useRoute()
@@ -96,6 +96,15 @@ async function handleFollow() {
   } catch { ElMessage.error('操作失败') } finally { followLoading.value = false }
 }
 
+// Feed 辅助函数（与 Blog/index.vue 保持一致）
+const _BASE = import.meta.env.VITE_API_BASE_URL || ''
+function postAvatar(p: Post) {
+  return p.author_name ? `${_BASE}/users/username/${p.author_name}/avatar/view` : ''
+}
+function postCover(p: Post) { return p.cover_image_url ? getFileUrl(p.cover_image_url) : '' }
+function postName(p: Post) { return p.author_nickname || p.author_name || '?' }
+function postTime(p: Post) { return fromNow(p.published_at || p.created_at) }
+
 onMounted(async () => {
   await loadProfile()
   loadPosts(true)
@@ -111,6 +120,11 @@ onMounted(async () => {
     </div>
 
     <div v-else-if="user" class="profile-container">
+      <button class="page-back" @click="router.back()">
+        <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="10,3 5,8 10,13"/></svg>
+        返回
+      </button>
+
       <!-- 用户卡片 -->
       <div class="user-card">
         <div class="user-cover" />
@@ -138,6 +152,7 @@ onMounted(async () => {
               <span class="stat-val">{{ user.followers_count || 0 }}</span>
               <span class="stat-lbl">粉丝</span>
             </div>
+            <div class="stat-sep" />
             <div class="stat-item clickable"
               @click="router.push({ name: 'FollowList', params: { username: user!.username, type: 'following' } })">
               <span class="stat-val">{{ user.following_count || 0 }}</span>
@@ -149,6 +164,7 @@ onMounted(async () => {
                 <span class="stat-val">{{ likesReceived }}</span>
                 <span class="stat-lbl">获赞</span>
               </div>
+              <div class="stat-sep" />
               <div class="stat-item">
                 <span class="stat-val">{{ collectsReceived }}</span>
                 <span class="stat-lbl">收藏</span>
@@ -167,24 +183,42 @@ onMounted(async () => {
                 <span class="btn-hover">取消关注</span>
               </button>
             </template>
-            <el-button v-if="isOwnProfile" type="primary" @click="router.push({ name: 'Space' })">
+            <el-button v-if="isOwnProfile" type="primary" size="small" @click="router.push({ name: 'Space' })">
               编辑资料
-            </el-button>
-            <el-button @click="router.back()">
-              <el-icon><Back /></el-icon>返回
             </el-button>
           </div>
         </div>
       </div>
 
-      <!-- 博文列表 -->
+      <!-- 博文列表（feed-item 布局，与发现页一致）-->
       <div class="posts-section">
         <h2 class="section-title">博文</h2>
-        <div v-if="loadingMore && posts.length === 0" class="posts-grid">
-          <el-skeleton v-for="i in 6" :key="i" animated :rows="3" />
+        <div v-if="loadingMore && posts.length === 0" class="feed-skeleton">
+          <el-skeleton v-for="i in 5" :key="i" animated :rows="3" style="margin-bottom:16px" />
         </div>
-        <div v-else-if="posts.length > 0" class="posts-grid">
-          <PostCard v-for="post in posts" :key="post.id" :post="post" :show-author="false" />
+        <div v-else-if="posts.length > 0" class="feed-list">
+          <article v-for="p in posts" :key="p.id" class="feed-item" @click="router.push('/post/'+p.id)">
+            <div class="item-hdr">
+              <el-avatar :size="22" :src="postAvatar(p)">{{ postName(p)[0]?.toUpperCase() }}</el-avatar>
+              <span class="item-author" @click.stop="p.author_name && router.push('/u/'+p.author_name)">{{ postName(p) }}</span>
+              <span class="item-time">{{ postTime(p) }}</span>
+            </div>
+            <div class="item-body">
+              <div class="item-text">
+                <h3 class="item-title">{{ p.title }}</h3>
+                <p v-if="p.summary" class="item-summary">{{ p.summary }}</p>
+              </div>
+              <img v-if="postCover(p)" :src="postCover(p)" :alt="p.title" class="item-cover" loading="lazy" />
+            </div>
+            <div class="item-ftr">
+              <span v-if="(p as any).status === 'draft'" class="item-status draft">草稿</span>
+              <span v-else-if="(p as any).is_hidden" class="item-status hidden">已隐藏</span>
+              <span class="item-stat"><el-icon :size="12"><Star /></el-icon>{{ p.like_count }}</span>
+              <span class="item-stat"><el-icon :size="12"><ChatLineRound /></el-icon>{{ p.comment_count }}</span>
+              <span class="item-stat"><el-icon :size="12"><ViewIcon /></el-icon>{{ p.view_count }}</span>
+              <span v-if="p.category_name" class="item-tag">{{ p.category_name }}</span>
+            </div>
+          </article>
         </div>
         <el-empty v-else description="暂无公开博文" />
         <div v-if="hasMore" class="load-more">
@@ -196,120 +230,41 @@ onMounted(async () => {
 </template>
 
 <style scoped lang="scss">
-.user-profile-page {
-  min-height: 100vh;
-  background: var(--el-bg-color-page);
-}
-
-.profile-container {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: $spacing-lg $spacing-md;
-}
-
-.user-card {
-  background: var(--el-bg-color);
-  border-radius: $radius-xl;
-  overflow: hidden;
-  box-shadow: $shadow-md;
-  margin-bottom: $spacing-lg;
-}
-
-.user-cover {
-  height: 180px;
-  background: linear-gradient(135deg, $color-primary 0%, $color-secondary 100%);
-}
-
-.user-info-section {
-  padding: 0 $spacing-xl $spacing-lg;
-  text-align: center;
-}
-
-.avatar-wrap {
-  margin-top: -48px;
-  margin-bottom: $spacing-md;
-  display: flex;
-  justify-content: center;
-}
-
+.user-profile-page { min-height: 100vh; background: var(--el-bg-color-page); }
+.profile-container { max-width: 1100px; margin: 0 auto; padding: $spacing-lg $spacing-md; }
+.user-card { background: var(--el-bg-color); border-radius: $radius-xl; overflow: hidden; box-shadow: $shadow-md; margin-bottom: $spacing-lg; }
+.user-cover { height: 180px; background: linear-gradient(135deg, $color-primary 0%, $color-secondary 100%); }
+.user-info-section { padding: 0 $spacing-xl $spacing-lg; text-align: center; }
+.avatar-wrap { margin-top: -48px; margin-bottom: $spacing-md; display: flex; justify-content: center; }
 .user-avatar {
   border: 4px solid var(--el-bg-color);
-  font-size: 36px;
-  font-weight: bold;
+  font-size: 36px; font-weight: bold;
   background: linear-gradient(135deg, $color-primary, $color-secondary);
   color: white;
+  line-height: 1;
 }
-
 .user-name {
-  font-size: $font-xl;
-  font-weight: 700;
-  margin: 0 0 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  font-size: $font-xl; font-weight: 700; margin: 0 0 4px;
+  display: flex; align-items: center; justify-content: center;
   color: var(--el-text-color-primary);
 }
-
-.user-uid {
-  font-size: $font-sm;
-  color: var(--el-text-color-secondary);
-  margin: 0 0 4px;
-}
-
-.user-sig {
-  font-size: $font-sm;
-  color: var(--el-text-color-secondary);
-  margin: 0 0 $spacing-md;
-  line-height: 1.6;
-}
-
+.user-uid { font-size: $font-sm; color: var(--el-text-color-secondary); margin: 0 0 4px; }
+.user-sig { font-size: $font-sm; color: var(--el-text-color-secondary); margin: 0 0 $spacing-md; line-height: 1.6; }
 .user-stats {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: $spacing-xl;
+  display: flex; align-items: center; justify-content: center; gap: $spacing-xl;
   padding: $spacing-md 0;
   border-top: 1px solid var(--el-border-color-light);
   border-bottom: 1px solid var(--el-border-color-light);
   margin-bottom: $spacing-md;
 }
-
 .stat-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-
-  &.clickable {
-    cursor: pointer;
-    &:hover .stat-val { color: $color-primary; }
-  }
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  &.clickable { cursor: pointer; &:hover .stat-val { color: $color-primary; } }
 }
-
-.stat-val {
-  font-size: $font-xl;
-  font-weight: 700;
-  color: var(--el-text-color-primary);
-  line-height: 1;
-}
-
-.stat-lbl {
-  font-size: $font-xs;
-  color: var(--el-text-color-secondary);
-}
-
-.stat-sep {
-  width: 1px;
-  height: 28px;
-  background: var(--el-border-color-light);
-}
-
-.user-actions {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: $spacing-sm;
-}
+.stat-val { font-size: $font-xl; font-weight: 700; color: var(--el-text-color-primary); line-height: 1; }
+.stat-lbl { font-size: $font-xs; color: var(--el-text-color-secondary); }
+.stat-sep { width: 1px; height: 28px; background: var(--el-border-color-light); }
+.user-actions { display: flex; align-items: center; justify-content: center; gap: $spacing-sm; }
 
 .follow-btn {
   display: inline-flex;
@@ -327,7 +282,7 @@ onMounted(async () => {
   .btn-hover { display: none; }
 
   &:hover:not(.is-loading) {
-    background: rgba(99, 102, 241, 0.85);
+    background: rgba(90, 103, 216, 0.85);
   }
 
   &.is-following {
@@ -364,30 +319,66 @@ onMounted(async () => {
 .section-title {
   font-size: $font-base;
   font-weight: 600;
-  margin: 0 0 $spacing-lg;
+  margin: 0 0 $spacing-md;
   color: var(--el-text-color-primary);
 }
 
-.posts-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: $spacing-md;
-  margin-bottom: $spacing-lg;
+.feed-list { display: flex; flex-direction: column; }
+.feed-item {
+  padding: 20px 0;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  cursor: pointer;
+  &:last-child { border-bottom: none; }
+}
+.item-hdr { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+.item-author { font-size: 13px; font-weight: 500; color: var(--el-text-color-secondary); cursor: pointer; &:hover { color: $color-primary; } }
+.item-time { font-size: 12px; color: var(--el-text-color-placeholder); margin-left: auto; }
+.item-body { display: flex; align-items: flex-start; gap: $spacing-md; margin-bottom: 10px; }
+.item-text { flex: 1; min-width: 0; }
+.item-title {
+  font-size: 17px; font-weight: 600; color: var(--el-text-color-primary); margin: 0 0 6px;
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  line-height: 1.45; transition: color $transition-fast; cursor: pointer;
+  &:hover { color: $color-primary; }
+}
+.item-summary { font-size: 13px; color: var(--el-text-color-secondary); margin: 0; line-height: 1.6; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.item-cover { width: 100px; height: 72px; border-radius: $radius-sm; object-fit: cover; flex-shrink: 0; border: 1px solid var(--el-border-color-lighter); }
+.item-ftr { display: flex; align-items: center; gap: $spacing-md; }
+.item-stat { display: flex; align-items: center; gap: 3px; font-size: 12px; color: var(--el-text-color-placeholder); }
+.item-tag { font-size: 11px; color: var(--el-text-color-secondary); border: 1px solid var(--el-border-color-light); border-radius: $radius-sm; padding: 1px 6px; margin-left: auto; }
+
+.load-more { display: flex; justify-content: center; margin-top: $spacing-md; }
+
+.page-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px 5px 8px;
+  margin-bottom: $spacing-sm;
+  border: 1px solid var(--el-border-color-light);
+  background: var(--el-bg-color);
+  color: var(--el-text-color-secondary);
+  font-size: $font-sm;
+  border-radius: $radius-md;
+  cursor: pointer;
+  transition: border-color $transition-fast, color $transition-fast, background $transition-fast;
+  &:hover { border-color: $color-primary; color: $color-primary; }
 }
 
-.load-more {
-  display: flex;
-  justify-content: center;
-}
-
-@media (max-width: 900px) {
-  .posts-grid { grid-template-columns: repeat(2, 1fr); }
+.item-status {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: $radius-sm;
+  &.draft  { background: rgba(245,158,11,.1); color: #d97706; border: 1px solid rgba(245,158,11,.2); }
+  &.hidden { background: rgba(239,68,68,.08); color: #ef4444; border: 1px solid rgba(239,68,68,.15); }
 }
 
 @media (max-width: 560px) {
   .profile-container { padding: $spacing-sm; }
   .user-info-section { padding: 0 $spacing-md $spacing-md; }
-  .posts-grid { grid-template-columns: 1fr; }
   .user-stats { gap: $spacing-lg; }
+  .item-cover { width: 72px; height: 54px; }
+  .item-title { font-size: $font-base; }
 }
 </style>

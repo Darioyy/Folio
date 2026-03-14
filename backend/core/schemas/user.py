@@ -1,8 +1,14 @@
 """
 用户相关的 Pydantic Schemas
 """
+import re
 from pydantic import BaseModel, Field, EmailStr, ConfigDict, field_validator
 from typing import Optional
+
+
+def _strip_html(value: str) -> str:
+    """去除字符串中的 HTML 标签，防止存储型 XSS。"""
+    return re.sub(r'<[^>]*>', '', value).strip()
 
 
 class UserBase(BaseModel):
@@ -18,6 +24,11 @@ class UserCreate(UserBase):
     is_admin: Optional[int] = Field(None, description='是否管理员（通过内测码等）')
     nickname: Optional[str] = Field(None, min_length=1, max_length=50, description='昵称')
 
+    @field_validator('nickname', mode='before')
+    @classmethod
+    def sanitize_nickname(cls, v):
+        return _strip_html(v) if v else v
+
 
 class UserUpdate(BaseModel):
     """更新用户 Schema"""
@@ -28,6 +39,11 @@ class UserUpdate(BaseModel):
     avatar: Optional[str] = Field(None, description='头像路径')
     nickname: Optional[str] = Field(None, min_length=1, max_length=50, description='昵称')
     signature: Optional[str] = Field(None, max_length=200, description='个性签名')
+
+    @field_validator('nickname', 'signature', mode='before')
+    @classmethod
+    def sanitize_text_fields(cls, v):
+        return _strip_html(v) if v else v
     is_admin: Optional[int] = None
     is_root: Optional[int] = None
 
@@ -74,3 +90,8 @@ class ProfileUpdate(BaseModel):
     nickname: Optional[str] = Field(None, min_length=1, max_length=50, description='昵称')
     signature: Optional[str] = Field(None, max_length=200, description='个性签名')
     email: Optional[str] = Field(None, description='邮箱')
+
+    @field_validator('nickname', 'signature', mode='before')
+    @classmethod
+    def sanitize_text_fields(cls, v):
+        return _strip_html(v) if v else v

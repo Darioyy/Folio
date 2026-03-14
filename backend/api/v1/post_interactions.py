@@ -16,11 +16,23 @@ bp = Blueprint("post_interactions", __name__)
 @bp.route("/me/collections", methods=["GET"])
 @login_required
 def get_my_collections():
-    """GET /api/v1/posts/me/collections — 我收藏的博文列表"""
+    """GET /api/v1/posts/me/collections — 我收藏的博文列表
+    folder_id 参数说明：
+      未传      → 返回全部收藏
+      folder_id=0  → 返回未分类收藏（folder_id IS NULL）
+      folder_id=N  → 返回指定收藏夹
+    """
     try:
         page = int(request.args.get("page", 1))
         page_size = min(int(request.args.get("page_size", 20)), 100)
-        result = InteractionService.get_user_collections(user_id=g.user_id, page=page, page_size=page_size)
+        folder_id_raw = request.args.get("folder_id", "")
+        # 空字符串 → 不过滤；"0" → 未分类；正整数字符串 → 指定收藏夹
+        folder_id = None
+        if folder_id_raw != "":
+            folder_id = int(folder_id_raw) if (folder_id_raw.isdigit() or folder_id_raw == "0") else None
+        result = InteractionService.get_user_collections(
+            user_id=g.user_id, page=page, page_size=page_size, folder_id=folder_id
+        )
         return success_response(data=result)
     except Exception as e:
         return error_response(code="INTERNAL_ERROR", message=str(e), http_code=500)

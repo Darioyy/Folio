@@ -2,6 +2,7 @@
 文件分组服务层 - 业务逻辑
 """
 import logging
+import os
 from typing import Optional
 
 from sqlalchemy.orm import Session
@@ -137,9 +138,11 @@ class GroupService:
         return result
 
     @staticmethod
-    def create(user_id: int, name: str, session: Session, parent_id: Optional[int] = None) -> FileGroup:
+    def create(user_id: int, name: str, session: Session,
+               parent_id: Optional[int] = None, merge: bool = False) -> FileGroup:
         """
         创建分组。根目录（parent_id=None）最多 ROOT_LIMIT 个。
+        merge=True 时：若同名文件夹已存在则直接返回，不报错。
 
         Raises:
             ValueError: 名称无效 / 超出根目录限制 / 父分组不存在或无权
@@ -149,6 +152,19 @@ class GroupService:
             raise ValueError('分组名不能为空')
         if len(name) > 100:
             raise ValueError('分组名不能超过100字符')
+
+        # 同级重名检查（merge 模式下先于配额检查，确保已有文件夹始终可合并）
+        dup_where = (
+            FileGroup.user_id == user_id,
+            FileGroup.name == name,
+            FileGroup.parent_id.is_(None) if parent_id is None else FileGroup.parent_id == parent_id,
+        )
+        existing_id = session.execute(select(FileGroup.id).where(*dup_where)).scalar_one_or_none()
+        if existing_id is not None:
+            if merge:
+                # merge 模式：返回已有文件夹，不报错
+                return session.get(FileGroup, existing_id)
+            raise ValueError(f'该目录下已存在名为「{name}」的文件夹')
 
         if parent_id is None:
             root_count = session.execute(
@@ -169,9 +185,10 @@ class GroupService:
         return group
 
     @staticmethod
-    def rename(group_id: int, user_id: int, name: str, session: Session) -> FileGroup:
+    def rename(group_id: int, user_id: int, name: str, session: Session,
+               description: Optional[str] = None) -> FileGroup:
         """
-        重命名分组
+        重命名分组，可同时更新描述。
 
         Raises:
             ValueError: 分组不存在或名称无效
@@ -187,17 +204,31 @@ class GroupService:
         if not name:
             raise ValueError('分组名不能为空')
 
+        # 同级重名检查（排除自身）
+        if name != group.name:
+            dup_stmt = select(FileGroup.id).where(
+                FileGroup.user_id == user_id,
+                FileGroup.name == name,
+                FileGroup.id != group_id,
+                FileGroup.parent_id.is_(None) if group.parent_id is None else FileGroup.parent_id == group.parent_id,
+            )
+            if session.execute(dup_stmt).scalar_one_or_none() is not None:
+                raise ValueError(f'该目录下已存在名为「{name}」的文件夹')
+
         group.name = name
+        if description is not None:
+            group.description = description.strip() or None
         session.commit()
         session.refresh(group)
         return group
 
     @staticmethod
-    def delete(group_id: int, user_id: int, session: Session, force: bool = False) -> bool:
+    def delete(group_id: int, user_id: int, session: Session,
+               force: bool = False, upload_folder: Optional[str] = None) -> bool:
         """
         删除分组：
         - force=False（默认）：直接文件解除关联（group_id=NULL），子分组上移
-        - force=True：递归删除所有子分组和文件记录（物理文件不删，仅数据库记录）
+        - force=True：递归删除所有子分组、文件数据库记录及磁盘物理文件
 
         Raises:
             ValueError: 分组不存在
@@ -210,9 +241,10 @@ class GroupService:
             raise PermissionError('无权删除此分组')
 
         if force:
-            GroupService._delete_recursive(group_id, user_id, session)
+            file_paths = GroupService._delete_recursive(group_id, user_id, session)
         else:
             parent_id = group.parent_id
+            file_paths = []
             # 将文件移出分组
             session.execute(
                 update(File).where(File.group_id == group_id).values(group_id=None)
@@ -226,11 +258,27 @@ class GroupService:
             session.delete(group)
 
         session.commit()
+
+        # 提交成功后再删物理文件，避免 DB 与文件系统状态不一致
+        if force and upload_folder and file_paths:
+            for file_path, thumb_path in file_paths:
+                for rel_path in (file_path, thumb_path):
+                    if rel_path:
+                        abs_path = os.path.join(upload_folder, rel_path)
+                        if os.path.exists(abs_path):
+                            try:
+                                os.remove(abs_path)
+                            except Exception:
+                                logger.warning(f'物理文件删除失败: {abs_path}')
+
         return True
 
     @staticmethod
-    def _delete_recursive(group_id: int, user_id: int, session: Session) -> None:
-        """BFS 收集完整子树 ID，然后批量删除文件记录和分组（不删物理文件）"""
+    def _delete_recursive(group_id: int, user_id: int, session: Session) -> list:
+        """
+        BFS 收集完整子树 ID，批量删除文件记录和分组。
+        Returns: [(file_path, thumbnail_path), ...] 供调用方做物理删除
+        """
         # BFS 逐层收集所有后代分组 ID
         levels = [[group_id]]
         all_group_ids = [group_id]
@@ -247,6 +295,12 @@ class GroupService:
             levels.append(children)
             all_group_ids.extend(children)
 
+        # 提交前收集物理路径（commit 后记录就没了）
+        file_paths = list(session.execute(
+            select(File.file_path, File.thumbnail_path)
+            .where(File.group_id.in_(all_group_ids), File.user_id == user_id)
+        ).all())
+
         # 批量删除所有分组中的文件记录
         session.execute(
             delete(File).where(File.group_id.in_(all_group_ids), File.user_id == user_id)
@@ -260,6 +314,8 @@ class GroupService:
                     FileGroup.user_id == user_id,
                 )
             )
+
+        return file_paths
 
     @staticmethod
     def sort_root(user_id: int, ordered_ids: list, session: Session) -> bool:
@@ -318,6 +374,40 @@ class GroupService:
         session.commit()
         session.refresh(group)
         return group
+
+    @staticmethod
+    def get_size(group_id: int, user_id: int, session: Session) -> int:
+        """
+        获取分组（含所有子分组）的递归文件大小总和（字节）
+
+        Raises:
+            ValueError: 分组不存在或无权访问
+        """
+        group = session.get(FileGroup, group_id)
+        if not group or group.user_id != user_id:
+            raise ValueError('分组不存在')
+
+        # BFS 获取所有子分组 ID（含自身）
+        all_group_ids = [group_id]
+        current_level = [group_id]
+        while True:
+            children = list(session.execute(
+                select(FileGroup.id).where(
+                    FileGroup.parent_id.in_(current_level),
+                    FileGroup.user_id == user_id,
+                )
+            ).scalars())
+            if not children:
+                break
+            all_group_ids.extend(children)
+            current_level = children
+
+        total = session.execute(
+            select(func.sum(File.file_size))
+            .where(File.group_id.in_(all_group_ids), File.user_id == user_id)
+        ).scalar() or 0
+
+        return int(total)
 
     @staticmethod
     def assign_file_group(

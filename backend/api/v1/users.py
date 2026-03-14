@@ -6,7 +6,7 @@ import os
 import random
 import io
 import base64
-from flask import Blueprint, request, session, g, send_file
+from flask import Blueprint, request, session, g, send_file, Response
 from werkzeug.utils import secure_filename
 from sqlalchemy.exc import IntegrityError
 
@@ -16,8 +16,8 @@ from core.schemas.user import UserCreate, UserUpdate, UserLogin, UserChangePassw
 from core.services.user_service import UserService
 from core.services.follow_service import follow_service
 from core.utils.validators import login_required, admin_required, root_required
-from core.utils.response import success_response, error_response, pagination_response
-from core.utils.permissions import get_user_role
+from core.utils.response import success_response, error_response, pagination_response, format_pydantic_error
+from core.utils.permissions import get_user_role, require_root
 from core.services.system_service import SystemService
 from config.default import Config
 from extensions import limiter
@@ -31,47 +31,134 @@ _CAPTCHA_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
 
 
 def _build_captcha_image(code: str) -> bytes:
-    """用 Pillow 生成验证码 PNG，返回字节流"""
+    """用 Pillow 生成高难度验证码 PNG：逐字旋转+变形+波形扭曲+彩色噪点"""
+    import math
     from PIL import Image, ImageDraw, ImageFont
 
-    width, height = 130, 44
-    img = Image.new('RGB', (width, height), color=(245, 245, 245))
-    draw = ImageDraw.Draw(img)
+    width, height = 140, 48
+    n = len(code)
 
-    # 噪点
-    for _ in range(200):
+    # ── 渐变背景 ────────────────────────────────────────────
+    bg_colors = [
+        (238, 240, 255), (237, 233, 254), (232, 240, 255), (240, 245, 255)
+    ]
+    bg1 = random.choice(bg_colors)
+    bg2 = random.choice(bg_colors)
+    img = Image.new('RGB', (width, height), bg1)
+    draw = ImageDraw.Draw(img)
+    # 左右渐变
+    for x in range(width):
+        t = x / width
+        r = int(bg1[0] * (1 - t) + bg2[0] * t)
+        g_c = int(bg1[1] * (1 - t) + bg2[1] * t)
+        b = int(bg1[2] * (1 - t) + bg2[2] * t)
+        draw.line([(x, 0), (x, height)], fill=(r, g_c, b))
+
+    # ── 彩色噪点 ────────────────────────────────────────────
+    for _ in range(150):
         x = random.randint(0, width - 1)
         y = random.randint(0, height - 1)
-        v = random.randint(150, 220)
-        draw.point((x, y), fill=(v, v, v))
+        r_c = random.randint(80, 200)
+        g_c = random.randint(80, 180)
+        b_c = random.randint(140, 240)
+        draw.point((x, y), fill=(r_c, g_c, b_c))
 
-    # 干扰折线
+    # ── 干扰曲线（贝塞尔近似：分段折线） ──────────────────────
     for _ in range(4):
-        pts = [
-            (int(width * j / 4) + random.randint(-6, 6),
-             random.randint(4, height - 4))
-            for j in range(5)
-        ]
-        c = (random.randint(100, 190), random.randint(100, 190), random.randint(100, 190))
+        c = (random.randint(60, 160), random.randint(60, 130), random.randint(140, 220))
+        lw = 1
+        # 用多段折线模拟曲线
+        pts = []
+        segs = 8
+        for k in range(segs + 1):
+            px = int(width * k / segs) + random.randint(-8, 8)
+            py = height // 2 + random.randint(-height // 2 + 2, height // 2 - 2)
+            pts.append((px, py))
         for k in range(len(pts) - 1):
-            draw.line([pts[k], pts[k + 1]], fill=c, width=1)
+            draw.line([pts[k], pts[k + 1]], fill=c, width=lw)
 
-    # 字符
-    char_w = width // len(code)
+    # ── 逐字符绘制（旋转 + 缩放变形） ──────────────────────────
+    char_w = width // (n + 1)
     for i, ch in enumerate(code):
-        x = i * char_w + random.randint(1, 5)
-        y = random.randint(4, 12)
-        color = (random.randint(20, 110), random.randint(20, 110), random.randint(20, 110))
-        size = random.randint(18, 24)
+        size = random.randint(22, 30)
         try:
             font = ImageFont.load_default(size=size)
         except TypeError:
             font = ImageFont.load_default()
-        draw.text((x, y), ch, fill=color, font=font)
+
+        # 在临时小图上画字
+        tmp_size = 48
+        tmp = Image.new('RGBA', (tmp_size, tmp_size), (0, 0, 0, 0))
+        td = ImageDraw.Draw(tmp)
+        r_c = random.randint(15, 90)
+        g_c = random.randint(10, 60)
+        b_c = random.randint(100, 200)
+        td.text((tmp_size // 2 - size // 2, tmp_size // 2 - size // 2),
+                ch, fill=(r_c, g_c, b_c, 255), font=font)
+
+        # 随机旋转 ±18°
+        angle = random.uniform(-18, 18)
+        tmp = tmp.rotate(angle, resample=Image.BICUBIC, expand=False)
+
+        # 随机 X/Y 缩放（轻微拉伸）
+        scale_x = random.uniform(0.85, 1.15)
+        scale_y = random.uniform(0.9, 1.1)
+        new_w = max(1, int(tmp_size * scale_x))
+        new_h = max(1, int(tmp_size * scale_y))
+        tmp = tmp.resize((new_w, new_h), resample=Image.BICUBIC)
+
+        # 粘贴到主图上
+        paste_x = char_w * i + char_w // 2 - new_w // 2 + random.randint(-4, 4)
+        paste_y = height // 2 - new_h // 2 + random.randint(-5, 5)
+        img.paste(tmp, (paste_x, paste_y), tmp)
+
+    # ── 前景叠加干扰（覆盖在字符上） ───────────────────────────
+    draw = ImageDraw.Draw(img)
+    for _ in range(2):
+        c = (random.randint(80, 160), random.randint(80, 130), random.randint(150, 210))
+        pts = [(random.randint(0, width // 4), random.randint(4, height - 4))]
+        for _ in range(3):
+            pts.append((pts[-1][0] + random.randint(20, 45),
+                        random.randint(4, height - 4)))
+        for k in range(len(pts) - 1):
+            draw.line([pts[k], pts[k + 1]], fill=c, width=1)
+
+    # ── 波形像素扭曲（正弦双向位移，轻微） ──────────────────────
+    amp = random.uniform(1.5, 2.5)
+    freq_h = random.uniform(0.04, 0.08)
+    freq_v = random.uniform(0.04, 0.08)
+    phase_h = random.uniform(0, math.pi * 2)
+    phase_v = random.uniform(0, math.pi * 2)
+
+    src_pixels = img.load()
+    dst = Image.new('RGB', (width, height))
+    dst_pixels = dst.load()
+    for x in range(width):
+        for y in range(height):
+            dx = int(amp * math.sin(y * freq_h * 1.5 + phase_h))
+            dy = int(amp * math.sin(x * freq_v + phase_v))
+            sx = min(width - 1, max(0, x - dx))
+            sy = min(height - 1, max(0, y - dy))
+            dst_pixels[x, y] = src_pixels[sx, sy]
 
     buf = io.BytesIO()
-    img.save(buf, format='PNG')
+    dst.save(buf, format='PNG')
     return buf.getvalue()
+
+
+def _build_avatar_svg(letter: str) -> str:
+    """Generate a simple letter-based SVG avatar, used as fallback when no avatar is uploaded."""
+    import html
+    safe = html.escape((letter or 'F').upper())
+    palette = ['#5a67d8', '#7c3aed', '#db2777', '#0891b2', '#059669', '#d97706', '#dc2626', '#2563eb']
+    color = palette[ord(letter.lower()) % len(palette)] if letter else palette[0]
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40">'
+        f'<circle cx="20" cy="20" r="20" fill="{color}"/>'
+        f'<text x="20" y="20" dy=".35em" text-anchor="middle" fill="white" '
+        f'font-family="system-ui,-apple-system,sans-serif" font-size="16" font-weight="600">{safe}</text>'
+        f'</svg>'
+    )
 
 
 @bp.route('/check-username', methods=['GET'])
@@ -154,7 +241,7 @@ def login():
     try:
         data = UserLogin(**body)
     except Exception as e:
-        return error_response('INVALID_PARAMS', str(e), 400)
+        return error_response('INVALID_PARAMS', format_pydantic_error(e), 400)
 
     user = UserService.authenticate(data.username, data.password, db_session.session)
 
@@ -165,14 +252,15 @@ def login():
     if not user:
         return error_response('LOGIN_FAILED', '用户名或密码错误', 401)
 
-    # 设置 session
+    # 设置 session（permanent=True 使 PERMANENT_SESSION_LIFETIME 生效，即 7 天过期）
+    session.permanent = True
     session['user_id'] = user.id
     session['username'] = user.username
     session['is_admin'] = user.is_admin
     session['is_root'] = user.is_root
 
     # 兼容服务器端 session（如 Flask-Session）
-    response_data = {'user': user.to_dict()}
+    response_data = {'user': user.to_dict(show_email=True)}
     if hasattr(session, 'sid'):
         response_data['session_id'] = session.sid
     return success_response(response_data, '登录成功')
@@ -216,7 +304,7 @@ def register():
     try:
         data = UserCreate(**body)
     except Exception as e:
-        return error_response('INVALID_PARAMS', str(e), 400)
+        return error_response('INVALID_PARAMS', format_pydantic_error(e), 400)
 
     # 检查注册开关和内测码（config 已在上方加载）
     if not config.get('register_enabled', True):
@@ -233,7 +321,7 @@ def register():
     try:
         user = UserService.create(data, db_session.session)
         # 返回格式与登录一致：{data: {user: {...}}}
-        return success_response({'user': user.to_dict()}, '注册成功', 201)
+        return success_response({'user': user.to_dict(show_email=True)}, '注册成功', 201)
     except ValueError as e:
         return error_response('REGISTER_FAILED', str(e), 400)
     except IntegrityError:
@@ -255,11 +343,7 @@ def logout():
             "message": "登出成功"
         }
     """
-    session.pop('user_id', None)
-    session.pop('username', None)
-    session.pop('is_admin', None)
-    session.pop('is_root', None)
-
+    session.clear()
     return success_response(message='登出成功')
 
 
@@ -287,7 +371,7 @@ def get_current_user():
     if not user:
         return error_response('USER_NOT_FOUND', '用户不存在', 404)
 
-    data = user.to_dict()
+    data = user.to_dict(show_email=True)
 
     # 统计该用户所有博文的总获赞数和总被收藏数
     like_count = db_session.session.execute(
@@ -325,7 +409,7 @@ def change_password():
     try:
         data = UserChangePassword(**request.json)
     except Exception as e:
-        return error_response('INVALID_PARAMS', str(e), 400)
+        return error_response('INVALID_PARAMS', format_pydantic_error(e), 400)
 
     user = UserService.get_by_id(g.user_id, db_session.session)
     if not user:
@@ -431,7 +515,10 @@ def get_user(user_id: int):
     if not user:
         return error_response('USER_NOT_FOUND', '用户不存在', 404)
 
-    return success_response(user.to_dict())
+    # 只有本人或管理员才能看到邮箱
+    is_self = g.user_id == user_id
+    is_admin_user = require_admin(g.user_id, db_session.session)
+    return success_response(user.to_dict(show_email=is_self or is_admin_user))
 
 
 @bp.route('/<int:user_id>', methods=['PUT'])
@@ -457,11 +544,11 @@ def update_user(user_id: int):
     try:
         data = UserUpdate(**request.json)
     except Exception as e:
-        return error_response('INVALID_PARAMS', str(e), 400)
+        return error_response('INVALID_PARAMS', format_pydantic_error(e), 400)
 
     try:
         user = UserService.update(user_id, data, g.user_id, db_session.session)
-        return success_response(user.to_dict(), '更新成功')
+        return success_response(user.to_dict(show_email=True), '更新成功')
     except ValueError as e:
         return error_response('NOT_FOUND', str(e), 404)
     except PermissionError as e:
@@ -520,7 +607,7 @@ def update_user_role(user_id: int):
         return error_response('USER_NOT_FOUND', '用户不存在', 404)
 
     # 只有 ROOT 可以设置 ROOT 角色
-    if data.get('is_root', 0) and not session.get('is_root'):
+    if data.get('is_root', 0) and not require_root(g.user_id, db_session.session):
         return error_response('FORBIDDEN', '只有超级管理员可以设置超级管理员', 403)
 
     # ADMIN 不能将自己设置为 ROOT
@@ -528,7 +615,7 @@ def update_user_role(user_id: int):
         return error_response('FORBIDDEN', '不能将自己设置为超级管理员', 403)
 
     # ADMIN 不能修改其他 ADMIN 的角色
-    if user.is_admin and not session.get('is_root'):
+    if user.is_admin and not require_root(g.user_id, db_session.session):
         return error_response('FORBIDDEN', '无权修改管理员角色', 403)
 
     user.is_admin = data.get('is_admin', user.is_admin)
@@ -537,7 +624,7 @@ def update_user_role(user_id: int):
     db_session.session.commit()
     db_session.session.refresh(user)
 
-    return success_response(user.to_dict(), '角色更新成功')
+    return success_response(user.to_dict(show_email=True), '角色更新成功')
 
 
 @bp.route('/me/profile', methods=['PUT'])
@@ -566,10 +653,10 @@ def update_profile():
     try:
         data = ProfileUpdate(**request.json)
     except Exception as e:
-        return error_response('INVALID_PARAMS', str(e), 400)
+        return error_response('INVALID_PARAMS', format_pydantic_error(e), 400)
 
     user = UserService.update_profile(g.user_id, data, db_session.session)
-    return success_response(user.to_dict(), '个人资料更新成功')
+    return success_response(user.to_dict(show_email=True), '个人资料更新成功')
 
 
 @bp.route('/me/avatar', methods=['POST'])
@@ -629,7 +716,7 @@ def upload_avatar():
     # 更新用户头像
     user = UserService.update_avatar(g.user_id, relative_path, db_session.session)
 
-    return success_response(user.to_dict(), '头像上传成功')
+    return success_response(user.to_dict(show_email=True), '头像上传成功')
 
 
 @bp.route('/me/avatar/view', methods=['GET'])
@@ -646,19 +733,18 @@ def view_avatar():
     """
     user = UserService.get_by_id(g.user_id, db_session.session)
     if not user or not user.avatar:
-        # 返回默认头像
-        default_avatar = os.path.join(os.path.dirname(__file__), '..', '..', 'static', 'default_avatar.png')
-        if os.path.exists(default_avatar):
-            return send_file(default_avatar)
-        return error_response('AVATAR_NOT_FOUND', '头像不存在', 404)
+        letter = user.username[0] if user else 'F'
+        return Response(_build_avatar_svg(letter), mimetype='image/svg+xml',
+                        headers={'Cache-Control': 'public, max-age=86400'})
 
     uploads_dir = os.path.abspath(Config.UPLOAD_FOLDER)
     avatar_path = os.path.join(uploads_dir, user.avatar)
 
     if not os.path.exists(avatar_path):
-        return error_response('FILE_NOT_FOUND', '头像文件不存在', 404)
+        return Response(_build_avatar_svg(user.username[0]), mimetype='image/svg+xml',
+                        headers={'Cache-Control': 'public, max-age=86400'})
 
-    return send_file(avatar_path)
+    return send_file(avatar_path, max_age=86400)
 
 
 @bp.route('/username/<username>/avatar/view', methods=['GET'])
@@ -678,19 +764,18 @@ def view_user_avatar(username: str):
     user = db_session.session.execute(stmt).scalar_one_or_none()
 
     if not user or not user.avatar:
-        # 返回默认头像
-        default_avatar = os.path.join(os.path.dirname(__file__), '..', '..', 'static', 'default_avatar.png')
-        if os.path.exists(default_avatar):
-            return send_file(default_avatar)
-        return error_response('AVATAR_NOT_FOUND', '头像不存在', 404)
+        letter = user.username[0] if user else 'F'
+        return Response(_build_avatar_svg(letter), mimetype='image/svg+xml',
+                        headers={'Cache-Control': 'public, max-age=86400'})
 
     uploads_dir = os.path.abspath(Config.UPLOAD_FOLDER)
     avatar_path = os.path.join(uploads_dir, user.avatar)
 
     if not os.path.exists(avatar_path):
-        return error_response('FILE_NOT_FOUND', '头像文件不存在', 404)
+        return Response(_build_avatar_svg(user.username[0]), mimetype='image/svg+xml',
+                        headers={'Cache-Control': 'public, max-age=86400'})
 
-    return send_file(avatar_path)
+    return send_file(avatar_path, max_age=86400)
 
 
 @bp.route('/me/stats', methods=['GET'])
@@ -1023,10 +1108,15 @@ def get_followers(user_id: int):
     followers, total = follow_service.get_followers(user_id, page, page_size)
 
     follower_ids = [f['id'] for f in followers]
-    # 互相关注：profile owner 是否回关了这些粉丝
-    owner_follows = follow_service.check_follow_status(user_id, follower_ids)
-    for follower in followers:
-        follower['is_mutual'] = owner_follows.get(follower['id'], False)
+    # 互相关注：仅 profile owner 本人查看时才填充，第三方访问一律置 False
+    viewer_id = session.get('user_id')
+    if viewer_id == user_id:
+        owner_follows = follow_service.check_follow_status(user_id, follower_ids)
+        for follower in followers:
+            follower['is_mutual'] = owner_follows.get(follower['id'], False)
+    else:
+        for follower in followers:
+            follower['is_mutual'] = False
 
     # 检查当前访问者的关注状态
     is_logged_in = 'user_id' in session
@@ -1061,10 +1151,15 @@ def get_following(user_id: int):
     following, total = follow_service.get_following(user_id, page, page_size)
 
     following_ids = [f['id'] for f in following]
-    # 互相关注：被关注者是否也关注了 profile owner
-    mutual_set = follow_service.get_mutual_followings(user_id, following_ids)
-    for user in following:
-        user['is_mutual'] = user['id'] in mutual_set
+    # 互相关注：仅 profile owner 本人查看时才填充，第三方访问一律置 False
+    viewer_id = session.get('user_id')
+    if viewer_id == user_id:
+        mutual_set = follow_service.get_mutual_followings(user_id, following_ids)
+        for u in following:
+            u['is_mutual'] = u['id'] in mutual_set
+    else:
+        for u in following:
+            u['is_mutual'] = False
 
     # 检查当前访问者的关注状态
     is_logged_in = 'user_id' in session
@@ -1189,4 +1284,4 @@ def update_privacy_settings():
     db_session.session.commit()
     db_session.session.refresh(user)
 
-    return success_response(user.to_dict(), '隐私设置更新成功')
+    return success_response(user.to_dict(show_email=True), '隐私设置更新成功')

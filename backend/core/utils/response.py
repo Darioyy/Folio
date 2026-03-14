@@ -5,6 +5,51 @@ from typing import Any, Optional
 from flask import jsonify
 
 
+# Pydantic 字段名 → 中文显示名
+_FIELD_LABELS = {
+    'username': '用户名', 'password': '密码', 'email': '邮箱',
+    'nickname': '昵称', 'title': '标题', 'content': '正文',
+    'new_password': '新密码', 'old_password': '旧密码',
+    'signature': '个性签名', 'summary': '摘要',
+}
+
+
+def format_pydantic_error(e) -> str:
+    """将 Pydantic ValidationError 转换为用户友好的中文提示。"""
+    try:
+        from pydantic import ValidationError
+        if not isinstance(e, ValidationError):
+            return str(e)
+        errors = e.errors(include_url=False)
+    except Exception:
+        return str(e)
+
+    messages = []
+    for err in errors[:3]:
+        field = str(err['loc'][-1]) if err['loc'] else ''
+        label = _FIELD_LABELS.get(field, f'「{field}」' if field else '参数')
+        err_type = err.get('type', '')
+        ctx = err.get('ctx', {})
+        msg = err.get('msg', '')
+
+        if err_type == 'missing':
+            detail = '不能为空'
+        elif err_type == 'string_too_short':
+            detail = f'不能少于 {ctx.get("min_length", "?")} 个字符'
+        elif err_type == 'string_too_long':
+            detail = f'不能超过 {ctx.get("max_length", "?")} 个字符'
+        elif err_type in ('value_error', 'string_pattern_mismatch'):
+            detail = '格式不正确'
+        elif 'email' in msg.lower() or 'valid email' in msg.lower():
+            detail = '格式不正确'
+        else:
+            detail = '无效'
+
+        messages.append(f'{label}{detail}')
+
+    return '；'.join(messages) if messages else '参数验证失败'
+
+
 def success_response(data: Any = None, message: Optional[str] = None, code: int = 200):
     """
     成功响应

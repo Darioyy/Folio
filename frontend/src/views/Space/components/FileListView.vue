@@ -3,9 +3,15 @@
     <div :class="['list-header', { 'with-check': isEditMode }]">
       <span v-if="isEditMode" class="col-check"></span>
       <span class="col-icon"></span>
-      <span class="col-name">文件名</span>
-      <span class="col-size hide-mobile">大小</span>
-      <span class="col-time">时间</span>
+      <span class="col-name sort-col" :class="{ active: sortKey === 'name' }" @click="toggleSort('name')">
+        文件名<SortArrow :active="sortKey === 'name'" :dir="sortDir" />
+      </span>
+      <span class="col-size hide-mobile sort-col" :class="{ active: sortKey === 'size' }" @click="toggleSort('size')">
+        大小<SortArrow :active="sortKey === 'size'" :dir="sortDir" />
+      </span>
+      <span class="col-time sort-col" :class="{ active: sortKey === 'time' }" @click="toggleSort('time')">
+        时间<SortArrow :active="sortKey === 'time'" :dir="sortDir" />
+      </span>
       <span class="col-actions">操作</span>
     </div>
 
@@ -19,7 +25,7 @@
       @dragstart="!isEditMode && onFolderDragStart($event, folder)"
       @dragend="!isEditMode && onFolderDragEnd()"
       @dragenter.prevent="!isEditMode && onFolderDragEnter($event, folder)"
-      @dragover="!isEditMode && onFolderDragOver($event)"
+      @dragover.prevent="!isEditMode && onFolderDragOver($event)"
       @dragleave="!isEditMode && onFolderDragLeave($event)"
       @drop.stop.prevent="!isEditMode && onFolderDrop($event, folder)"
     >
@@ -29,15 +35,14 @@
         </svg>
       </span>
       <span class="col-icon">
-        <svg viewBox="0 0 40 34" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="20" height="17" style="color: var(--el-color-primary); opacity: 0.8">
-          <path d="M2 8a2 2 0 012-2h9l2.5 3.5H36a2 2 0 012 2v16a2 2 0 01-2 2H4a2 2 0 01-2-2V8z"/>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="#f59e0b" stroke="none">
+          <path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" opacity="0.9"/>
         </svg>
       </span>
       <div class="col-name">
         <span class="row-title">{{ folder.name }}</span>
-        <span class="row-desc">{{ folder.file_count }} 个文件<template v-if="folder.children_count > 0"> · {{ folder.children_count }} 子文件夹</template></span>
       </div>
-      <span class="col-size hide-mobile">—</span>
+      <span class="col-size hide-mobile" @mouseenter="loadFolderSize(folder.id)">{{ folderSizes[folder.id] ?? '—' }}</span>
       <span class="col-time hide-mobile" :title="formatDate(folder.created_at)">{{ formatDate(folder.created_at, 'MM-DD') }}</span>
       <div class="col-actions" @click.stop>
         <template v-if="!isEditMode">
@@ -49,7 +54,7 @@
 
     <!-- 文件行 -->
     <div
-      v-for="file in allFiles"
+      v-for="file in sortedFiles"
       :key="file.id"
       :class="['list-row', { 'is-selected': isEditMode && selectedItems.has(`file:${file.id}`), 'with-check': isEditMode }]"
       :draggable="!isEditMode"
@@ -63,14 +68,7 @@
         </svg>
       </span>
       <span class="col-icon">
-        <div v-if="file.file_category === 'image'" class="list-thumb">
-          <img :src="getFileUrl(file.thumbnail_path || file.file_path)" :alt="file.file_name" loading="lazy" @error="(e) => ((e.target as HTMLImageElement).style.display = 'none')" />
-        </div>
-        <div v-else-if="file.file_category === 'video'" class="list-thumb">
-          <img v-if="file.thumbnail_path" :src="getFileUrl(file.thumbnail_path)" :alt="file.file_name" loading="lazy" @error="(e) => ((e.target as HTMLImageElement).style.display = 'none')" />
-          <el-icon v-else :size="20" style="color: #6366f1"><VideoPlay /></el-icon>
-        </div>
-        <FileTypeIcon v-else :mime-type="file.mime_type" :file-name="file.file_name" size="sm" />
+        <FileTypeIcon :mime-type="file.mime_type" :file-name="file.file_name" :file-category="file.file_category" size="sm" />
       </span>
       <div class="col-name">
         <span class="row-title">{{ file.file_name }}</span>
@@ -90,15 +88,40 @@
 </template>
 
 <script setup lang="ts">
-import { inject } from 'vue'
-import { VideoPlay, Edit as EditIcon, Delete as DeleteIcon } from '@element-plus/icons-vue'
+import { inject, ref, computed } from 'vue'
+import type { Ref } from 'vue'
+import { Edit as EditIcon, Delete as DeleteIcon } from '@element-plus/icons-vue'
 import FileTypeIcon from '@/components/business/FileTypeIcon.vue'
 import type { useGroupNav } from '@/composables/useGroupNav'
 import type { useFileManager } from '@/composables/useFileManager'
 import type { useBatchSelect } from '@/composables/useBatchSelect'
 import type { useDragDrop } from '@/composables/useDragDrop'
 import type { FileItem } from '@/types/models'
-import { formatFileSize, formatDate, getFileUrl } from '@/utils/format'
+import { formatFileSize, formatDate } from '@/utils/format'
+import { groupsApi } from '@/api/modules/groups'
+
+// 文件夹大小懒加载
+const folderSizes = ref<Record<number, string>>({})
+const _loadingFolderIds = new Set<number>()
+async function loadFolderSize(folderId: number) {
+  if (folderSizes.value[folderId] !== undefined || _loadingFolderIds.has(folderId)) return
+  _loadingFolderIds.add(folderId)
+  try {
+    const res = await groupsApi.getSize(folderId)
+    if (res.data !== undefined) folderSizes.value = { ...folderSizes.value, [folderId]: formatFileSize(res.data) }
+  } finally {
+    _loadingFolderIds.delete(folderId)
+  }
+}
+
+// 共享排序状态（由 Files.vue provide）
+const { sortKey, sortDir, toggleSort } = inject('fileSort') as { sortKey: Ref<string>; sortDir: Ref<'asc' | 'desc'>; toggleSort: (k: string) => void }
+
+// 内联排序箭头组件
+const SortArrow = {
+  props: ['active', 'dir'],
+  template: `<span class="sort-arrow" :class="{ 'is-active': active }">{{ active ? (dir === 'asc' ? '↑' : '↓') : '↕' }}</span>`,
+}
 
 const { subFolders, navigateDeep } = inject('groupNav') as ReturnType<typeof useGroupNav>
 const { displayFiles: allFiles, currentFile, previewVisible, openEdit, handleDelete } = inject('fileManager') as ReturnType<typeof useFileManager>
@@ -110,6 +133,17 @@ const {
   onFolderDragEnter, onFolderDragOver, onFolderDragLeave, onFolderDrop,
   openFolderEdit, deleteFolderWithCheck,
 } = inject('dragDrop') as ReturnType<typeof useDragDrop>
+
+const sortedFiles = computed(() => {
+  if (!sortKey.value) return allFiles.value
+  return [...allFiles.value].sort((a, b) => {
+    let cmp = 0
+    if (sortKey.value === 'name') cmp = a.file_name.localeCompare(b.file_name, 'zh')
+    else if (sortKey.value === 'size') cmp = (a.file_size || 0) - (b.file_size || 0)
+    else if (sortKey.value === 'time') cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    return sortDir.value === 'asc' ? cmp : -cmp
+  })
+})
 
 function handlePreview(file: FileItem) {
   currentFile.value = file
@@ -128,37 +162,41 @@ function handlePreview(file: FileItem) {
 
 .list-header {
   display: grid;
-  grid-template-columns: 44px 1fr 70px 100px 100px;
+  grid-template-columns: 40px 1fr 72px 120px 80px;
   gap: $spacing-sm;
   align-items: center;
-  padding: $spacing-sm $spacing-md;
+  height: 36px;
+  padding: 0 12px;
   background: var(--el-fill-color-light);
-  border-bottom: 1px solid var(--el-border-color-light);
-  font-size: $font-xs;
-  font-weight: 500;
-  color: var(--el-text-color-secondary);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
 }
 
 .list-header.with-check,
-.list-row.with-check { grid-template-columns: 32px 44px 1fr 70px 100px 100px; }
+.list-row.with-check { grid-template-columns: 32px 40px 1fr 72px 120px 80px; }
 
 .list-row {
   display: grid;
-  grid-template-columns: 44px 1fr 70px 100px 100px;
+  grid-template-columns: 40px 1fr 72px 120px 80px;
   gap: $spacing-sm;
   align-items: center;
-  padding: $spacing-sm $spacing-md;
-  border-bottom: 1px solid var(--el-border-color-lighter);
+  min-height: 40px;
+  padding: 0 12px;
+  border-top: 1px solid var(--color-border-subtle);
   cursor: pointer;
   transition: background $transition-fast;
 
-  &:last-child { border-bottom: none; }
-  &:hover { background: var(--el-fill-color-light); }
-  &.is-selected { background: rgba(99, 102, 241, 0.06) !important; outline: 1px solid rgba(99, 102, 241, 0.3); }
+  &:first-child { border-top: none; }
+  &:hover { background: var(--color-primary-subtle); }
+  &:hover .col-actions { opacity: 1; }
+  &.is-selected { background: rgba(90, 103, 216, 0.06) !important; outline: 1px solid rgba(90, 103, 216, 0.3); }
+  &.is-selected .col-actions { opacity: 1; }
   &.folder-row { font-weight: 500; }
-  &.folder-row.drag-over { background: rgba(99, 102, 241, 0.06); outline: 1px solid $color-primary; outline-offset: -1px; }
+  &.folder-row.drag-over { background: rgba(90, 103, 216, 0.06); outline: 1px solid $color-primary; outline-offset: -1px; }
   &.is-dragging-folder { opacity: 0.4; cursor: grabbing; }
 }
 
@@ -170,32 +208,23 @@ function handlePreview(file: FileItem) {
   justify-content: center;
   flex-shrink: 0;
 
-  .list-thumb {
-    width: 36px; height: 36px;
-    border-radius: $radius-sm;
-    overflow: hidden;
-    background: var(--el-fill-color);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    img { width: 100%; height: 100%; object-fit: cover; }
-  }
 }
 
 .col-name {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  justify-content: center;
+  gap: 1px;
 
-  .row-title { font-size: $font-sm; font-weight: 500; color: var(--el-text-color-primary); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-  .row-desc { font-size: $font-xs; color: var(--el-text-color-secondary); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .row-title { font-size: $font-13; font-weight: 500; color: var(--el-text-color-primary); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; line-height: 1.4; }
+  .row-desc { font-size: $font-xs; color: var(--el-text-color-secondary); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; line-height: 1.3; }
 }
 
-.col-size, .col-time { font-size: $font-xs; color: var(--el-text-color-secondary); white-space: nowrap; }
+.col-size { font-size: $font-xs; color: var(--color-text-muted); white-space: nowrap; }
+.col-time { font-size: $font-xs; color: var(--color-text-muted); white-space: nowrap; }
 
-.col-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.col-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; opacity: 0; transition: opacity $transition-fast; }
 
 .check-circle {
   display: block;
@@ -216,7 +245,27 @@ function handlePreview(file: FileItem) {
 
 .hide-mobile { @media (max-width: $breakpoint-md) { display: none; } }
 
+.sort-col {
+  cursor: pointer;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  transition: color $transition-fast;
+
+  &:hover { color: $color-primary; }
+  &.active { color: $color-primary; }
+}
+
+.sort-arrow {
+  font-size: 10px;
+  opacity: 0.6;
+  transition: opacity $transition-fast;
+  &.is-active { opacity: 1; color: $color-primary; }
+}
+
 @media (max-width: $breakpoint-md) {
-  .list-header, .list-row { grid-template-columns: 44px 1fr 90px 140px; }
+  .list-header, .list-row { grid-template-columns: 40px 1fr 80px; }
+  .list-header.with-check, .list-row.with-check { grid-template-columns: 32px 40px 1fr 80px; }
 }
 </style>

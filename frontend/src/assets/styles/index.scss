@@ -39,11 +39,11 @@ a {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: $border-light;
+  background: $border-base;
   border-radius: $border-radius-base;
 
   &:hover {
-    background: $border-base;
+    background: color.scale($border-base, $lightness: -15%);
   }
 }
 
@@ -54,10 +54,10 @@ a {
 // 暗黑模式下的滚动条
 html.dark {
   ::-webkit-scrollbar-thumb {
-    background: #4c4d4f;
+    background: rgba(255, 255, 255, 0.12);
 
     &:hover {
-      background: #606266;
+      background: rgba(255, 255, 255, 0.2);
     }
   }
 }
@@ -139,25 +139,25 @@ html.dark {
 // 暗黑模式样式
 html.dark {
   body {
-    background-color: #1d1e1f;
-    color: #e5eaf3;
+    background-color: #141720;
+    color: #e8eaf0;
   }
 
   .el-card {
-    background-color: #252526;
-    border-color: #4c4d4f;
+    background-color: #1c1f26;
+    border-color: rgba(255, 255, 255, 0.08);
   }
 
   .el-menu {
-    background-color: #252526;
-    border-color: #4c4d4f;
+    background-color: #1c1f26;
+    border-color: rgba(255, 255, 255, 0.08);
 
     .el-menu-item,
     .el-sub-menu__title {
-      color: #e5eaf3;
+      color: #e8eaf0;
 
       &:hover {
-        background-color: #2c2c2e;
+        background-color: #252a35;
       }
     }
 

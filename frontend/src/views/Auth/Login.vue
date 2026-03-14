@@ -150,7 +150,7 @@ async function handleLogin() {
       ElMessage.success('登录成功')
 
       const redirect = (route.query.redirect as string) || '/'
-      router.push(redirect)
+      router.replace(redirect)
     } catch {
       // 错误已在 store 中处理；延迟刷新验证码，避免立即重绘影响错误提示的可读性
       formData.captcha = ''
@@ -178,7 +178,7 @@ function goBack() {
   justify-content: center;
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+  background: linear-gradient(135deg, #5a67d8 0%, #8b5cf6 50%, #a855f7 100%);
 }
 
 .login-background {
@@ -281,7 +281,7 @@ function goBack() {
 
     &:hover,
     &.is-focus {
-      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+      box-shadow: 0 0 0 2px rgba(90, 103, 216, 0.2);
     }
   }
 

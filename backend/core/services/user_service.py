@@ -317,7 +317,7 @@ class UserService:
         users = list(db_session.execute(stmt).scalars())
 
         return {
-            'items': [user.to_dict() for user in users],
+            'items': [user.to_dict(show_email=True) for user in users],
             'total': total,
             'page': page,
             'page_size': page_size,

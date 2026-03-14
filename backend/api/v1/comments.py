@@ -1,7 +1,7 @@
 """
 评论 API
 """
-from flask import Blueprint, request, g, session
+from flask import Blueprint, request, g
 
 from core.services.comment_service import comment_service
 from core.services.notification_service import notification_service
@@ -9,6 +9,7 @@ from core.models.file import File
 from core.models.comment import Comment
 from db.session import db as db_session
 from core.utils.validators import login_required
+from core.utils.permissions import require_admin
 from core.utils.response import success_response, error_response, pagination_response
 
 bp = Blueprint('comments_v1', __name__)
@@ -23,7 +24,7 @@ def get_comments(file_id: int):
     # 私有文件：仅所有者或管理员可查看评论
     if file.visibility == 'private':
         current_user_id = getattr(g, 'user_id', None)
-        is_admin = bool(session.get('is_admin') or session.get('is_root'))
+        is_admin = current_user_id is not None and require_admin(current_user_id, db_session.session)
         if not is_admin and current_user_id != file.user_id:
             return error_response('FORBIDDEN', '无权访问此文件的评论', 403)
 
@@ -86,7 +87,7 @@ def create_comment(file_id: int):
 @login_required
 def delete_comment(comment_id: int):
     """DELETE /api/v1/comments/:id — 删除评论"""
-    is_admin = bool(session.get('is_admin') or session.get('is_root'))
+    is_admin = require_admin(g.user_id, db_session.session)
     try:
         comment_service.delete_comment(comment_id, g.user_id, is_admin)
         return success_response(message='删除成功')

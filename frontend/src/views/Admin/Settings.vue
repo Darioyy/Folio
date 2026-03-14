@@ -77,15 +77,11 @@
           <span class="hint-text">（{{ formatStorage(config.max_file_size) }}）</span>
         </el-form-item>
         <el-form-item label="允许上传后缀" class="ext-form-item">
-          <el-input
-            v-model="config.allowed_extensions"
-            placeholder="png,jpg,mp4,pdf,..."
-            class="ext-input"
-          />
-          <div class="ext-hint">留空表示不限制后缀类型</div>
+          <ExtensionManager v-model="config.allowed_extensions" />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="saveQuotaConfig">保存设置</el-button>
+          <span class="save-hint">修改后缀或配额后需手动点击保存</span>
         </el-form-item>
       </el-form>
     </el-card>
@@ -151,6 +147,7 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { systemApi } from '@/api/modules/system'
 import type { SystemConfig, InviteCode } from '@/types/models'
+import ExtensionManager from '@/components/business/ExtensionManager.vue'
 
 const loading = ref(false)
 const codesLoading = ref(false)
@@ -304,24 +301,41 @@ onMounted(() => {
 .settings-form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
 }
 
 .setting-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 0;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--color-border-subtle, var(--el-border-color-lighter));
+  transition: background $transition-fast;
+
+  &:last-child { border-bottom: none; }
+
+  &:hover {
+    background: var(--color-surface-hover, rgba(0, 0, 0, 0.018));
+    html.dark & { background: rgba(255, 255, 255, 0.025); }
+  }
+
+  .setting-label {
+    flex: 1;
+    min-width: 0;
+    margin-right: $spacing-lg;
+  }
 
   .setting-title {
-    font-size: 14px;
+    font-size: $font-sm;
     font-weight: 500;
-    color: var(--el-text-color-primary);
+    color: var(--color-text-primary, var(--el-text-color-primary));
+    line-height: 1.4;
   }
+
   .setting-desc {
-    font-size: 12px;
-    color: var(--el-text-color-secondary);
-    margin-top: 2px;
+    font-size: $font-xs;
+    color: var(--color-text-muted, var(--el-text-color-secondary));
+    margin-top: 3px;
+    line-height: 1.4;
   }
 }
 
@@ -342,18 +356,15 @@ onMounted(() => {
   .el-form-item__content {
     flex-direction: column;
     align-items: flex-start;
+    gap: 0;
   }
 }
 
-.ext-input {
-  width: 480px;
-  max-width: 100%;
-}
 
-.ext-hint {
-  margin-top: 6px;
-  color: var(--el-text-color-placeholder);
+.save-hint {
+  margin-left: 10px;
   font-size: 12px;
+  color: var(--el-text-color-placeholder);
 }
 
 .card-header-row {

@@ -25,8 +25,11 @@ def init_db(app):
     db.init_app(app)
 
     with app.app_context():
-        # 导入所有模型（确保它们被注册）
-        from core.models import user, file_group, file, post, category, follow  # noqa
+        # 导入所有模型（确保它们被注册到 metadata）
+        from core.models import (  # noqa
+            user, file_group, file, post, category, follow,
+            comment, interaction, notification, post_attachment, post_view, feedback,
+        )
 
         # 创建所有表（如果不存在）
         db.create_all()

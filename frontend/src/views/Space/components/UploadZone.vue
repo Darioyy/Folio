@@ -61,7 +61,7 @@ const currentFolderName = computed(() =>
   position: absolute;
   inset: 0;
   z-index: 50;
-  background: rgba(99, 102, 241, 0.08);
+  background: rgba(90, 103, 216, 0.08);
   border-radius: $radius-lg;
   display: flex;
   align-items: center;

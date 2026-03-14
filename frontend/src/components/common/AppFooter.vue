@@ -19,7 +19,7 @@
           </div>
           <div class="footer-section">
             <h4>法律</h4>
-            <a href="#privacy">隐私政策</a>
+            <router-link to="/privacy">隐私政策</router-link>
             <a href="#terms">服务条款</a>
           </div>
         </div>
@@ -72,7 +72,7 @@ const currentYear = computed(() => new Date().getFullYear())
     font-size: 24px;
     font-weight: 700;
     margin: 0 0 $spacing-sm 0;
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    background: linear-gradient(135deg, #5a67d8 0%, #8b5cf6 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -112,7 +112,7 @@ const currentYear = computed(() => new Date().getFullYear())
     transition: color $transition-base;
 
     &:hover {
-      color: #6366f1;
+      color: #5a67d8;
     }
   }
 }
