@@ -24,7 +24,7 @@ def get_posts():
         query_schema = PostListQuery(
             page=int(request.args.get("page", 1)),
             limit=int(request.args.get("limit", 10)),
-            status=request.args.get("status", "published"),
+            status="published",  # 公开端点强制只显示已发布博文，忽略客户端传入的 status
             category_id=(int(request.args.get("category_id")) if request.args.get("category_id") else None),
             search=request.args.get("search", ""),
         )
@@ -92,7 +92,7 @@ def admin_get_all_posts():
         "items": result.get("items", []),
         "total": pagination.get("total", 0),
         "page": pagination.get("page", page),
-        "page_size": pagination.get("page_size", page_size),
+        "page_size": pagination.get("limit", page_size),
         "pages": pagination.get("pages", 1),
     })
 
@@ -165,13 +165,18 @@ def get_post(post_id):
         user_id = flask_session.get("user_id")
         if user_id:
             viewer_key = f"user:{user_id}"
+            is_admin = require_admin(user_id, db_session.session)
         else:
             # 匿名用户用 session 标识
             if "_vk" not in flask_session:
                 import uuid
                 flask_session["_vk"] = str(uuid.uuid4())[:16]
             viewer_key = f"anon:{flask_session['_vk']}"
-        post = PostService.get_post_by_id(post_id, increment_view=True, viewer_key=viewer_key)
+            is_admin = False
+        post = PostService.get_post_by_id(
+            post_id, increment_view=True, viewer_key=viewer_key,
+            viewer_id=user_id, is_admin=is_admin,
+        )
         return success_response(data=post)
     except ValueError as e:
         return error_response(code="NOT_FOUND", message=str(e), http_code=404)
@@ -261,7 +266,9 @@ def delete_post(post_id):
 def get_attachments(post_id):
     """获取附件列表 GET /api/v1/posts/:id/attachments"""
     try:
-        attachments = PostService.get_attachments(post_id)
+        current_user_id = flask_session.get('user_id')
+        is_admin = bool(current_user_id and require_admin(current_user_id, db_session.session))
+        attachments = PostService.get_attachments(post_id, viewer_id=current_user_id, is_admin=is_admin)
         return success_response(data=attachments)
     except ValueError as e:
         return error_response(code="NOT_FOUND", message=str(e), http_code=404)
@@ -386,18 +393,18 @@ def toggle_pin(post_id):
     post.is_pinned = 1 if pinned else 0
     db_session.session.commit()
 
-    # 置顶时通知所有成员（除发布者）
+    # 置顶时通知作者的粉丝（而非全体用户）
     if pinned and not was_pinned:
         try:
-            from core.models.user import User as UserModel
             from core.models.notification import Notification as NotifModel
+            from core.models.follow import Follow as FollowModel
             from sqlalchemy import select as _sel
-            users = db_session.session.execute(
-                _sel(UserModel).where(UserModel.id != post.author_id)
+            follower_ids = db_session.session.execute(
+                _sel(FollowModel.follower_id).where(FollowModel.following_id == post.author_id)
             ).scalars().all()
-            for u in users:
+            for fid in follower_ids:
                 db_session.session.add(NotifModel(
-                    user_id=u.id, type='pinned', actor_id=g.user_id,
+                    user_id=fid, type='pinned', actor_id=g.user_id,
                     target_id=post_id, extra={'post_title': post.title}
                 ))
             db_session.session.commit()
@@ -430,9 +437,25 @@ def report_post(post_id):
     if not reason:
         return error_response('BAD_REQUEST', '请填写举报原因', 400)
 
-    # 单独提交举报计数（用原子 SQL，避免列不存在时影响后续通知）
+    # 去重：同一用户不能重复举报同一篇博文
+    from core.models.notification import Notification as NotifModel
+    existing = db_session.session.execute(
+        select(NotifModel.id).where(
+            NotifModel.type == 'report',
+            NotifModel.actor_id == g.user_id,
+            NotifModel.target_id == post_id,
+        )
+    ).scalar_one_or_none()
+    if existing:
+        return error_response('BAD_REQUEST', '您已举报过该博文', 400)
+
+    # 记录举报通知（用于去重查询）并原子递增举报计数
     try:
         from sqlalchemy import text as _text
+        db_session.session.add(NotifModel(
+            user_id=post.author_id, type='report', actor_id=g.user_id,
+            target_id=post_id, extra={'reason': reason}
+        ))
         db_session.session.execute(
             _text(
                 "UPDATE posts"
@@ -554,12 +577,18 @@ def report_invalid(post_id):
     """PUT /api/v1/posts/:id/report-invalid — 举报无效：驳回举报并感谢举报者"""
     from core.models.post import Post
     from core.models.notification import Notification as NotifModel
+    from core.models.user import User as UserModel
     from sqlalchemy import text as _text
     if not require_admin(g.user_id, db_session.session):
         return error_response('FORBIDDEN', '无权操作', 403)
     post = db_session.session.get(Post, post_id)
     if not post:
         return error_response('NOT_FOUND', '博文不存在', 404)
+    # Admin 不能操作 Root 用户的博文（与 report_valid 保持一致）
+    operator = db_session.session.get(UserModel, g.user_id)
+    author = db_session.session.get(UserModel, post.author_id)
+    if operator and author and author.is_root and not operator.is_root:
+        return error_response('FORBIDDEN', '无权操作 Root 用户的博文', 403)
     # 清零举报计数并标记已驳回（便于历史记录查询）
     try:
         db_session.session.execute(
@@ -641,19 +670,22 @@ def review_appeal(post_id):
     post = db_session.session.get(Post, post_id)
     if not post:
         return error_response('NOT_FOUND', '博文不存在', 404)
-    if post.review_status != 'pending':
-        return error_response('BAD_REQUEST', '该博文没有待审核的申诉', 400)
 
     data = request.get_json() or {}
     action = data.get('action', '')  # 'approve' | 'reject'
     reject_reason = str(data.get('reason', '')).strip()
 
+    from sqlalchemy import update as _sql_update
     if action == 'approve':
-        post.is_hidden = 0
-        post.review_status = 'approved'
-        post.report_count = 0
-        post.hide_reason = None
-        post.appeal_reason = None
+        # 原子 UPDATE 含 WHERE review_status='pending'，防两个管理员并发处理同一申诉
+        result = db_session.session.execute(
+            _sql_update(Post)
+            .where(Post.id == post_id, Post.review_status == 'pending')
+            .values(is_hidden=0, review_status='approved', report_count=0,
+                    hide_reason=None, appeal_reason=None)
+        )
+        if result.rowcount == 0:
+            return error_response('BAD_REQUEST', '该博文没有待审核的申诉（或已被其他管理员处理）', 400)
         db_session.session.commit()
         # 通知作者：申诉通过
         notif = NotifModel(
@@ -668,10 +700,18 @@ def review_appeal(post_id):
         return success_response({'review_status': 'none', 'is_hidden': 0}, message='已批准申诉，博文已恢复')
 
     elif action == 'reject':
-        post.review_status = 'rejected'
+        values = {'review_status': 'rejected'}
         if reject_reason:
-            post.hide_reason = reject_reason
+            values['hide_reason'] = reject_reason
+        result = db_session.session.execute(
+            _sql_update(Post)
+            .where(Post.id == post_id, Post.review_status == 'pending')
+            .values(**values)
+        )
+        if result.rowcount == 0:
+            return error_response('BAD_REQUEST', '该博文没有待审核的申诉（或已被其他管理员处理）', 400)
         db_session.session.commit()
+        db_session.session.refresh(post)
         # 通知作者：申诉被拒绝
         notif = NotifModel(
             user_id=post.author_id,

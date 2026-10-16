@@ -78,12 +78,15 @@ class ProductionConfig(Config):
     """生产环境配置"""
     DEBUG = False
     SQLALCHEMY_ECHO = False
-    SESSION_COOKIE_SECURE = False
+    # SESSION_COOKIE_SECURE = True  # 待上线 HTTPS 后再启用，HTTP 下启用会导致 Cookie 无法发送
     RATELIMIT_STORAGE_URI = "memory://"  # 无 Redis 依赖，2核2G 服务器适用
     # P2: 生产连接池，防止高并发下连接耗尽
+    # pool_recycle=300 < MySQL wait_timeout=600，留 5 分钟裕量防止连接被服务端提前关闭
     SQLALCHEMY_ENGINE_OPTIONS = {
         "pool_size": 5,
-        "pool_recycle": 3600,
+        "max_overflow": 2,
+        "pool_recycle": 300,
+        "pool_timeout": 10,
         "pool_pre_ping": True,
     }
 

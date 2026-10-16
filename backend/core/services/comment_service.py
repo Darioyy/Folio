@@ -2,7 +2,8 @@
 评论服务（v3.0：绑定 post_id）
 """
 from typing import Dict, List
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, update as sql_update
+from sqlalchemy.orm import joinedload
 from db.session import db
 from core.models.comment import Comment
 from core.models.post import Post
@@ -23,6 +24,7 @@ class CommentService:
 
         root_comments = db.session.execute(
             select(Comment)
+            .options(joinedload(Comment.user))
             .where(and_(Comment.post_id == post_id, Comment.parent_id.is_(None)))
             .order_by(Comment.created_at.desc())
             .offset(offset).limit(page_size)
@@ -35,6 +37,7 @@ class CommentService:
         if root_ids:
             all_replies = db.session.execute(
                 select(Comment)
+                .options(joinedload(Comment.user))
                 .where(Comment.parent_id.in_(root_ids))
                 .order_by(Comment.created_at.asc())
             ).scalars().all()
@@ -97,9 +100,12 @@ class CommentService:
         )
         db.session.add(comment)
 
-        # 更新评论计数（仅根评论 +1）
+        # 原子更新评论计数（仅根评论 +1），防并发丢失
         if parent_id is None:
-            post.comment_count = (post.comment_count or 0) + 1
+            db.session.execute(
+                sql_update(Post).where(Post.id == post_id)
+                .values(comment_count=Post.comment_count + 1)
+            )
 
         db.session.commit()
         db.session.refresh(comment)
@@ -131,6 +137,8 @@ class CommentService:
     @staticmethod
     def delete_comment(comment_id: int, operator_id: int, is_admin: bool = False) -> bool:
         """删除评论"""
+        from sqlalchemy import delete as sql_delete
+
         comment = db.session.get(Comment, comment_id)
         if not comment:
             raise ValueError('评论不存在')
@@ -138,11 +146,16 @@ class CommentService:
         if not is_admin and comment.user_id != operator_id:
             raise PermissionError('无权删除此评论')
 
-        # 更新评论计数（仅根评论 -1）
         if comment.parent_id is None:
-            post = db.session.get(Post, comment.post_id)
-            if post:
-                post.comment_count = max(0, (post.comment_count or 0) - 1)
+            # 根评论：先显式 DELETE 所有回复，避免 ORM 将 parent_id 置 NULL
+            db.session.execute(
+                sql_delete(Comment).where(Comment.parent_id == comment_id)
+            )
+            # 原子更新评论计数（根评论 -1）
+            db.session.execute(
+                sql_update(Post).where(Post.id == comment.post_id)
+                .values(comment_count=func.greatest(0, Post.comment_count - 1))
+            )
 
         db.session.delete(comment)
         db.session.commit()
@@ -177,13 +190,21 @@ class CommentService:
         ).scalar_one_or_none()
         if existing:
             db.session.delete(existing)
-            comment.like_count = max(0, (comment.like_count or 0) - 1)
+            db.session.execute(
+                sql_update(Comment).where(Comment.id == comment_id)
+                .values(like_count=func.greatest(0, Comment.like_count - 1))
+            )
             liked = False
         else:
             cl = CommentLike(user_id=user_id, comment_id=comment_id)
             db.session.add(cl)
-            comment.like_count = (comment.like_count or 0) + 1
+            db.session.execute(
+                sql_update(Comment).where(Comment.id == comment_id)
+                .values(like_count=Comment.like_count + 1)
+            )
             liked = True
+        db.session.flush()
+        db.session.expire(comment)
         db.session.commit()
         return {'liked': liked, 'like_count': comment.like_count}
 

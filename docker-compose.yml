@@ -35,8 +35,9 @@ services:
           cpus: '0.25'
           memory: 128M
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
-      interval: 15s
+      # 使用 MYSQL_PWD 环境变量传递密码，避免密码出现在 docker inspect 的命令行参数中
+      test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_ROOT_PASSWORD mysqladmin ping -h localhost -u root --silent"]
+      interval: 30s
       timeout: 5s
       retries: 3
       start_period: 40s
@@ -69,10 +70,10 @@ services:
       resources:
         limits:
           cpus: '1.0'
-          memory: 512M
+          memory: 800M
         reservations:
           cpus: '0.25'
-          memory: 128M
+          memory: 256M
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s

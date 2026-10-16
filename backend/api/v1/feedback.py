@@ -1,12 +1,12 @@
 """
 反馈/建议 API
-POST /api/v1/feedback  — 登录用户提交反馈
+POST /api/v1/feedback  — 提交反馈（无需登录，匿名可提交）
 GET  /api/v1/feedback  — Root 查看反馈列表
 """
-from flask import Blueprint, request, g
+from flask import Blueprint, request, g, session
 from sqlalchemy import select, func
 from core.models.feedback import Feedback
-from core.utils.validators import login_required, root_required
+from core.utils.validators import root_required
 from core.utils.response import success_response, error_response
 from db.session import db as db_session
 
@@ -16,9 +16,8 @@ _VALID_TYPES = {"suggestion", "bug", "other"}
 
 
 @feedback_bp.route("", methods=["POST"])
-@login_required
 def submit_feedback():
-    """POST /api/v1/feedback — 提交建议/反馈"""
+    """POST /api/v1/feedback — 提交建议/反馈（匿名可提交，model.user_id 已定义 nullable=True）"""
     data = request.get_json() or {}
     type_ = data.get("type", "suggestion")
     content = str(data.get("content", "")).strip()
@@ -30,30 +29,33 @@ def submit_feedback():
     if len(content) > 2000:
         return error_response("BAD_REQUEST", "反馈内容不能超过 2000 字", 400)
 
-    fb = Feedback(user_id=g.user_id, type=type_, content=content)
+    # 登录用户关联 user_id，匿名用户存 None
+    user_id = session.get("user_id")
+    fb = Feedback(user_id=user_id, type=type_, content=content)
     db_session.session.add(fb)
     db_session.session.commit()
 
-    # 通知所有 Root 用户
-    try:
-        from core.models.user import User
-        from core.models.notification import Notification
-        roots = db_session.session.execute(
-            select(User).where(User.is_root == 1)
-        ).scalars().all()
-        for root in roots:
-            if root.id != g.user_id:
-                notif = Notification(
-                    user_id=root.id,
-                    type="admin",
-                    actor_id=g.user_id,
-                    target_id=fb.id,
-                    extra={"action": "new_feedback", "feedback_type": type_},
-                )
-                db_session.session.add(notif)
-        db_session.session.commit()
-    except Exception:
-        pass
+    # 仅登录用户触发 Root 通知（匿名反馈无 actor，跳过通知）
+    if user_id:
+        try:
+            from core.models.user import User
+            from core.models.notification import Notification
+            roots = db_session.session.execute(
+                select(User).where(User.is_root == 1)
+            ).scalars().all()
+            for root in roots:
+                if root.id != user_id:
+                    notif = Notification(
+                        user_id=root.id,
+                        type="admin",
+                        actor_id=user_id,
+                        target_id=fb.id,
+                        extra={"action": "new_feedback", "feedback_type": type_},
+                    )
+                    db_session.session.add(notif)
+            db_session.session.commit()
+        except Exception:
+            pass
 
     return success_response(data={"id": fb.id}, message="反馈已提交，感谢您的建议", code=201)
 

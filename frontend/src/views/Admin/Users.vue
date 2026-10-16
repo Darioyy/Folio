@@ -107,10 +107,48 @@
               <el-button type="danger" plain>删除用户</el-button>
             </template>
           </el-popconfirm>
+          <el-button v-if="userStore.isRoot" plain @click="showResetPasswordDialog">重置密码</el-button>
           <div style="flex: 1" />
           <el-button @click="dialogVisible = false">取消</el-button>
           <el-button type="primary" @click="handleSubmit">保存</el-button>
         </div>
+      </template>
+    </el-dialog>
+
+    <!-- 重置密码弹窗 -->
+    <el-dialog
+      v-model="resetPwdVisible"
+      title="重置密码"
+      width="400px"
+      :append-to-body="true"
+    >
+      <p class="reset-pwd-hint">重置用户 <strong>{{ editingUser?.username }}</strong> 的密码</p>
+      <el-form
+        ref="resetPwdFormRef"
+        :model="resetPwdData"
+        :rules="resetPwdRules"
+        label-width="90px"
+      >
+        <el-form-item label="新密码" prop="password">
+          <el-input
+            v-model="resetPwdData.password"
+            type="password"
+            show-password
+            placeholder="至少 6 位"
+          />
+        </el-form-item>
+        <el-form-item label="确认密码" prop="confirm">
+          <el-input
+            v-model="resetPwdData.confirm"
+            type="password"
+            show-password
+            placeholder="再次输入密码"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="resetPwdVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleResetPassword">确认重置</el-button>
       </template>
     </el-dialog>
   </div>
@@ -144,6 +182,27 @@ const formData = reactive({
 const rules: FormRules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' }
+  ]
+}
+
+const resetPwdVisible = ref(false)
+const resetPwdFormRef = ref<FormInstance>()
+const resetPwdData = reactive({ password: '', confirm: '' })
+
+const resetPwdRules: FormRules = {
+  password: [
+    { required: true, message: '请输入新密码', trigger: 'blur' },
+    { min: 6, max: 100, message: '密码长度 6~100 位', trigger: 'blur' }
+  ],
+  confirm: [
+    { required: true, message: '请再次输入密码', trigger: 'blur' },
+    {
+      validator: (_: any, value: string, callback: Function) => {
+        if (value !== resetPwdData.password) callback(new Error('两次密码不一致'))
+        else callback()
+      },
+      trigger: 'blur'
+    }
   ]
 }
 
@@ -243,6 +302,26 @@ async function handleSubmit() {
   })
 }
 
+function showResetPasswordDialog() {
+  resetPwdData.password = ''
+  resetPwdData.confirm = ''
+  resetPwdVisible.value = true
+}
+
+async function handleResetPassword() {
+  if (!resetPwdFormRef.value) return
+  await resetPwdFormRef.value.validate(async (valid) => {
+    if (!valid) return
+    try {
+      await usersApi.update(formData.id, { password: resetPwdData.password })
+      ElMessage.success('密码已重置')
+      resetPwdVisible.value = false
+    } catch {
+      // 错误已在 API 层处理
+    }
+  })
+}
+
 async function handleDeleteFromDialog() {
   if (!editingUser.value) return
   try {
@@ -289,5 +368,11 @@ onMounted(() => {
   display: flex;
   align-items: center;
   width: 100%;
+}
+
+.reset-pwd-hint {
+  margin: 0 0 16px;
+  color: var(--el-text-color-secondary);
+  font-size: 14px;
 }
 </style>

@@ -21,7 +21,7 @@ from db.session import init_db, db as db_session
 # 导入 API v1 蓝图
 from api.v1 import (users_bp, posts_bp, post_interactions_bp,
                     system_bp, hub_bp, files_bp, groups_bp, interactions_bp,
-                    comments_bp, notifications_bp, search_bp, feedback_bp)
+                    comments_bp, notifications_bp, search_bp, feedback_bp, tools_bp)
 from extensions import limiter
 
 
@@ -173,14 +173,19 @@ def create_app(config_name=None):
     app.register_blueprint(notifications_bp, url_prefix=f"{api_prefix}/notifications")
     app.register_blueprint(search_bp, url_prefix=f"{api_prefix}/search")
     app.register_blueprint(feedback_bp, url_prefix=f"{api_prefix}/feedback")
+    app.register_blueprint(tools_bp, url_prefix=f"{api_prefix}/tools")
 
-    # S-6: 安全响应头
+    # S-6: 安全响应头（API 响应层）
     @app.after_request
     def add_security_headers(response):
         response.headers['X-Frame-Options'] = 'SAMEORIGIN'
         response.headers['X-Content-Type-Options'] = 'nosniff'
-        response.headers['X-XSS-Protection'] = '1; mode=block'
+        # X-XSS-Protection 已被现代浏览器废弃，改由 CSP 负责
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
+        # 敏感 API 响应禁止缓存
+        if response.content_type.startswith('application/json'):
+            response.headers.setdefault('Cache-Control', 'no-store')
         return response
 
     # 健康检查端点

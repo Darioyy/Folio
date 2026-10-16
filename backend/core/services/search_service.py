@@ -3,6 +3,7 @@
 """
 from typing import Dict
 from sqlalchemy import select, func, or_
+from sqlalchemy.orm import selectinload
 from db.session import db
 from core.models.file import File
 from core.models.user import User
@@ -35,6 +36,7 @@ class SearchService:
 
             files = db.session.execute(
                 select(File)
+                .options(selectinload(File.user))
                 .where(
                     File.visibility == 'public',
                     or_(File.title.like(like_q), File.description.like(like_q))

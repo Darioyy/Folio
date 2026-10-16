@@ -20,8 +20,11 @@ email-validator==2.1.0
 
 # 文件处理
 numpy==1.24.3
-opencv-python==4.8.1.78
+opencv-python-headless==4.8.1.78
 Pillow==10.1.0
+
+# HTTP 客户端（tools 代理端点）
+requests==2.31.0
 
 # 限速
 Flask-Limiter[redis]==3.5.0

@@ -27,11 +27,13 @@
       </div>
 
       <!-- 结果为空 -->
-      <el-empty
-        v-else-if="!hasResults"
-        :description="query ? '没有找到相关内容' : '请输入搜索关键词'"
-        class="empty-state"
-      />
+      <div v-else-if="!hasResults" class="empty-state">
+        <el-empty
+          :description="query ? `没有找到「${query}」的相关内容` : '请输入搜索关键词'"
+          :image-size="80"
+        />
+        <router-link v-if="query" to="/blog" class="empty-discover-link">去发现页探索 →</router-link>
+      </div>
 
       <template v-else>
         <!-- 文件结果 -->
@@ -259,6 +261,20 @@ onMounted(() => {
 
 .empty-state {
   padding: $spacing-xl 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.empty-discover-link {
+  margin-top: $spacing-sm;
+  font-size: $font-sm;
+  color: $color-primary;
+  text-decoration: none;
+  opacity: 0.8;
+  transition: opacity $transition-fast;
+
+  &:hover { opacity: 1; }
 }
 
 .result-section {

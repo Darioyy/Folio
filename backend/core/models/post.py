@@ -105,7 +105,7 @@ class Post(db_session.Model):
             "id": self.id,
             "title": self.title,
             "content": self.content,
-            "summary": self.summary if self.summary else self._auto_summary(),
+            "summary": self.summary or '',
             "category_id": self.category_id,
             "author_id": self.author_id,
             "cover_image_id": self.cover_image_id,

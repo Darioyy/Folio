@@ -571,7 +571,7 @@ onActivated(() => init())
   user-select: none;
 
   &:hover { background: var(--el-fill-color-light); color: var(--el-text-color-primary); }
-  &.active { background: rgba(90, 103, 216, 0.1); color: $color-primary; font-weight: 500; }
+  &.active { background: var(--color-primary-subtle); color: var(--color-primary); font-weight: 500; }
 
   svg { flex-shrink: 0; opacity: 0.7; }
 }
@@ -758,7 +758,7 @@ onActivated(() => init())
   transition: background $transition-fast, color $transition-fast;
 
   &:hover { background: var(--el-fill-color); color: var(--el-text-color-primary); }
-  &.active { background: rgba(90, 103, 216, 0.1); color: $color-primary; }
+  &.active { background: var(--color-primary-subtle); color: var(--color-primary); }
 }
 
 // 批量操作栏

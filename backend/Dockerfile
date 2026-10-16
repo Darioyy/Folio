@@ -5,13 +5,10 @@ WORKDIR /app
 # 使用阿里云镜像源
 RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources
 
-# 安装系统依赖
+# 安装系统依赖（headless opencv 不需要 X11/GUI 相关包）
 RUN apt-get update && apt-get install -y \
     libgomp1 \
     libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
     libgl1 \
     curl \
     && rm -rf /var/lib/apt/lists/*
