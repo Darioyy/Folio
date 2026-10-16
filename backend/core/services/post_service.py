@@ -29,33 +29,46 @@ class PostService:
         needs_review: bool = False,
     ) -> dict:
         """获取文章列表（分页、筛选、搜索、排序）"""
-        query = Post.query.options(joinedload(Post.author), joinedload(Post.category))
+        conditions = []
 
         if status and status != "all":
-            query = query.filter(Post.status == status)
+            conditions.append(Post.status == status)
 
         # 公开列表过滤管理员隐藏的博文；管理员视图可见所有
         if status == 'published' and not admin_view:
-            query = query.filter(Post.is_hidden == 0)
+            conditions.append(Post.is_hidden == 0)
 
         if category_id:
-            query = query.filter(Post.category_id == category_id)
+            conditions.append(Post.category_id == category_id)
 
         if author_id:
-            query = query.filter(Post.author_id == author_id)
+            conditions.append(Post.author_id == author_id)
 
         if needs_review:
-            query = query.filter(
+            conditions.append(
                 or_(Post.is_hidden == 1, Post.review_status != 'none', Post.report_count > 0)
             )
 
         if search:
-            # P2: 截断超长搜索词，防止全表扫描
             search = search[:100]
-            search_pattern = f"%{search}%"
-            query = query.filter(
-                or_(Post.title.like(search_pattern), Post.content.like(search_pattern))
-            )
+            try:
+                from sqlalchemy import text as _text
+                # 优先用 FULLTEXT 全文索引（需已建 idx_posts_fulltext）
+                ft_ids = db_session.session.execute(
+                    _text(
+                        "SELECT id FROM posts"
+                        " WHERE MATCH(title, content) AGAINST(:q IN BOOLEAN MODE)"
+                        " LIMIT 200"
+                    ),
+                    {"q": search}
+                ).scalars().all()
+                conditions.append(Post.id.in_(ft_ids))
+            except Exception:
+                # FULLTEXT 索引未就绪时降级为 LIKE
+                search_pattern = f"%{search}%"
+                conditions.append(
+                    or_(Post.title.like(search_pattern), Post.content.like(search_pattern))
+                )
 
         if needs_review:
             # 审核视图：未处理举报(0) → 申诉待审(1) → 历史记录(2)，组内按举报次数倒序
@@ -64,7 +77,7 @@ class PostService:
                 (Post.review_status == 'pending', 1),
                 else_=2
             )
-            query = query.order_by(urgency, Post.report_count.desc(), Post.created_at.desc())
+            order = [urgency, Post.report_count.desc(), Post.created_at.desc()]
         elif sort == "hot":
             # 加权热门算法：点赞*2 + 收藏*3 + 评论*1.5 + 浏览*0.1，近7天内发布的帖子有1.5x加成
             # 置顶帖子始终优先
@@ -78,13 +91,22 @@ class PostService:
                 Post.comment_count * 1.5 +
                 Post.view_count * 0.1
             ) * recency_bonus
-            query = query.order_by(Post.is_pinned.desc(), hot_score.desc())
+            order = [Post.is_pinned.desc(), hot_score.desc()]
         else:
-            query = query.order_by(Post.is_pinned.desc(), Post.created_at.desc())
+            order = [Post.is_pinned.desc(), Post.created_at.desc()]
 
-        total = query.count()
-        offset = (page - 1) * limit
-        posts = query.offset(offset).limit(limit).all()
+        total = db_session.session.execute(
+            select(func.count(Post.id)).where(*conditions)
+        ).scalar() or 0
+
+        posts = db_session.session.execute(
+            select(Post)
+            .options(joinedload(Post.author), joinedload(Post.category))
+            .where(*conditions)
+            .order_by(*order)
+            .offset((page - 1) * limit)
+            .limit(limit)
+        ).scalars().all()
 
         items = [p.to_dict(include_category=True, include_author=True) for p in posts]
 
@@ -101,16 +123,22 @@ class PostService:
     @staticmethod
     def get_my_posts(author_id: int, page: int = 1, page_size: int = 20, status: str = "all") -> dict:
         """获取当前用户自己的博文列表（支持 status 筛选）"""
-        query = Post.query.options(joinedload(Post.category)).filter(Post.author_id == author_id)
-
+        conditions = [Post.author_id == author_id]
         if status and status != "all":
-            query = query.filter(Post.status == status)
+            conditions.append(Post.status == status)
 
-        query = query.order_by(Post.created_at.desc())
+        total = db_session.session.execute(
+            select(func.count(Post.id)).where(*conditions)
+        ).scalar() or 0
 
-        total = query.count()
-        offset = (page - 1) * page_size
-        posts = query.offset(offset).limit(page_size).all()
+        posts = db_session.session.execute(
+            select(Post)
+            .options(joinedload(Post.category))
+            .where(*conditions)
+            .order_by(Post.created_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        ).scalars().all()
 
         return {
             "items": [p.to_dict(include_category=True) for p in posts],
@@ -131,16 +159,24 @@ class PostService:
         if not user:
             raise ValueError("用户不存在")
 
-        query = Post.query.options(
-            joinedload(Post.author), joinedload(Post.category)
-        ).filter(
+        conditions = [
             Post.author_id == user.id,
             Post.status == "published",
-            Post.is_hidden == 0
-        ).order_by(Post.created_at.desc())
+            Post.is_hidden == 0,
+        ]
 
-        total = query.count()
-        posts = query.offset((page - 1) * page_size).limit(page_size).all()
+        total = db_session.session.execute(
+            select(func.count(Post.id)).where(*conditions)
+        ).scalar() or 0
+
+        posts = db_session.session.execute(
+            select(Post)
+            .options(joinedload(Post.author), joinedload(Post.category))
+            .where(*conditions)
+            .order_by(Post.created_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        ).scalars().all()
 
         return {
             "items": [p.to_dict(include_category=True, include_author=True) for p in posts],
@@ -151,11 +187,30 @@ class PostService:
         }
 
     @staticmethod
-    def get_post_by_id(post_id: int, increment_view: bool = True, viewer_key: str = None) -> dict:
-        """获取文章详情"""
-        post = db_session.session.get(Post, post_id)
+    def get_post_by_id(post_id: int, increment_view: bool = True, viewer_key: str = None,
+                       viewer_id: int = None, is_admin: bool = False) -> dict:
+        """获取文章详情（SQL 层过滤：公开博文任何人可访问，非公开仅作者/管理员可访问）"""
+        # 先尝试公开博文（SQL 层过滤，杜绝草稿/隐藏博文泄露）
+        post = db_session.session.execute(
+            select(Post).where(
+                Post.id == post_id,
+                Post.status == 'published',
+                Post.is_hidden == 0,
+            )
+        ).scalar_one_or_none()
+
         if not post:
-            raise ValueError("文章不存在")
+            # 非公开博文：仅作者或管理员可访问；故意返回 404 不泄露存在性
+            if viewer_id:
+                candidate = db_session.session.execute(
+                    select(Post).where(Post.id == post_id)
+                ).scalar_one_or_none()
+                if candidate and (candidate.author_id == viewer_id or is_admin):
+                    post = candidate
+            if not post:
+                raise ValueError("文章不存在")
+            # 非公开博文不统计浏览量
+            increment_view = False
 
         if increment_view:
             if viewer_key:
@@ -214,16 +269,24 @@ class PostService:
         if not following_ids:
             return {"items": [], "total": 0, "page": page, "page_size": page_size, "pages": 0}
 
-        query = Post.query.options(
-            joinedload(Post.author), joinedload(Post.category)
-        ).filter(
+        conditions = [
             Post.author_id.in_(following_ids),
             Post.status == "published",
-            Post.is_hidden == 0
-        ).order_by(Post.published_at.desc())
+            Post.is_hidden == 0,
+        ]
 
-        total = query.count()
-        posts = query.offset((page - 1) * page_size).limit(page_size).all()
+        total = db_session.session.execute(
+            select(func.count(Post.id)).where(*conditions)
+        ).scalar() or 0
+
+        posts = db_session.session.execute(
+            select(Post)
+            .options(joinedload(Post.author), joinedload(Post.category))
+            .where(*conditions)
+            .order_by(Post.published_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        ).scalars().all()
 
         return {
             "items": [p.to_dict(include_category=True, include_author=True) for p in posts],
@@ -266,6 +329,9 @@ class PostService:
             status=status,
         )
 
+        if not post.summary:
+            post.summary = post._auto_summary()
+
         if status == "published":
             post.published_at = datetime.utcnow()
 
@@ -304,6 +370,10 @@ class PostService:
                     if not f or f.user_id != post.author_id:
                         raise ValueError("封面图文件不存在或不属于作者")
                 setattr(post, field, kwargs[field])
+
+        # 内容变更时重算摘要（除非本次明确传入了 summary）
+        if 'content' in kwargs and kwargs.get('summary') is None:
+            post.summary = post._auto_summary()
 
         db_session.session.commit()
         return post.to_dict(include_category=True, include_author=True)
@@ -438,9 +508,25 @@ class PostService:
         return pa.file
 
     @staticmethod
-    def get_attachments(post_id: int) -> list:
-        """获取博文附件列表"""
-        post = db_session.session.get(Post, post_id)
+    def get_attachments(post_id: int, viewer_id: int = None, is_admin: bool = False) -> list:
+        """获取博文附件列表（公开博文任何人可访问，非公开仅作者/管理员可访问）"""
+        # SQL 层过滤：先查公开博文
+        post = db_session.session.execute(
+            select(Post).where(
+                Post.id == post_id,
+                Post.status == 'published',
+                Post.is_hidden == 0,
+            )
+        ).scalar_one_or_none()
+
         if not post:
-            raise ValueError("文章不存在")
+            if viewer_id:
+                candidate = db_session.session.execute(
+                    select(Post).where(Post.id == post_id)
+                ).scalar_one_or_none()
+                if candidate and (candidate.author_id == viewer_id or is_admin):
+                    post = candidate
+            if not post:
+                raise ValueError("文章不存在")
+
         return [pa.to_dict() for pa in (post.attachments or [])]

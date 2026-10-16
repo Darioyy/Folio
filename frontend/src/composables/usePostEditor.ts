@@ -1,12 +1,12 @@
-import { ref, watch } from 'vue'
+import { ref, watch, onUnmounted } from 'vue'
 import { postsApi } from '@/api/modules/posts'
 import { filesApi } from '@/api/modules/files'
 import { useUserStore } from '@/stores/user'
 import type { Post, Category, PostAttachment } from '@/types/models'
 
-let saveTimer: ReturnType<typeof setTimeout> | null = null
-
 export function usePostEditor() {
+  // saveTimer 在 composable 实例内部，避免多实例共享同一 timer 引用导致内存泄漏
+  let saveTimer: ReturnType<typeof setTimeout> | null = null
   const userStore = useUserStore()
 
   // localStorage 键名含用户 ID，防止多账号草稿污染
@@ -47,6 +47,12 @@ export function usePostEditor() {
     localStorage.setItem(key, JSON.stringify({ title: title.value, content: content.value, summary: summary.value }))
   }
 
+  /** 立即将当前内容写入 localStorage（用于 beforeunload 等无法等待 debounce 的场景） */
+  function flushLocalDraft() {
+    const key = postId.value ? getDraftKey(postId.value) : getDraftNewKey()
+    writeLocalDraft(key)
+  }
+
   function scheduleAutoSave() {
     const key = postId.value ? getDraftKey(postId.value) : getDraftNewKey()
     if (saveTimer) clearTimeout(saveTimer)
@@ -72,7 +78,7 @@ export function usePostEditor() {
       const p: Post = res.data
       title.value = p.title; content.value = p.content; summary.value = p.summary || ''
       categoryId.value = p.category_id ?? null; coverImageId.value = p.cover_image_id ?? null
-      coverImageUrl.value = p.cover_image_id ? filesApi.getThumbnailUrl(p.cover_image_id) : ''
+      coverImageUrl.value = p.cover_image_id ? filesApi.getViewUrl(p.cover_image_id) : ''
       attachments.value = p.attachments || []; status.value = p.status === 'published' ? 'published' : 'draft'
     } catch { /* 静默 */ }
     watch([title, content], scheduleAutoSave)
@@ -133,7 +139,7 @@ export function usePostEditor() {
 
   function setCoverImage(fileId: number) {
     coverImageId.value = fileId
-    coverImageUrl.value = filesApi.getThumbnailUrl(fileId)
+    coverImageUrl.value = filesApi.getViewUrl(fileId)
   }
 
   function clearLocalDraft() {
@@ -142,10 +148,18 @@ export function usePostEditor() {
     if (postId.value) localStorage.removeItem(getDraftKey(postId.value))
   }
 
+  // 组件卸载时清除待触发的自动保存定时器，防止对已销毁组件写入
+  onUnmounted(() => {
+    if (saveTimer) {
+      clearTimeout(saveTimer)
+      saveTimer = null
+    }
+  })
+
   return {
     postId, title, content, summary, categoryId,
     coverImageId, coverImageUrl, attachments, status, saving, categories,
     initNew, initEdit, saveDraft, publish,
-    addAttachment, removeAttachment, setCoverImage, clearLocalDraft
+    addAttachment, removeAttachment, setCoverImage, clearLocalDraft, flushLocalDraft
   }
 }

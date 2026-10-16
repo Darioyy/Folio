@@ -65,7 +65,11 @@
               v-model="formData.email"
               placeholder="请输入邮箱地址"
               clearable
+              @input="onEmailInput"
             />
+            <div v-if="emailStatus" :class="['username-status', emailStatus.available ? 'available' : 'taken']">
+              {{ emailStatus.message }}
+            </div>
           </el-form-item>
 
           <el-form-item label="内测码（可选）" prop="invite_code">
@@ -125,16 +129,21 @@ import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { User, Lock, Key } from '@element-plus/icons-vue'
 import { authApi } from '@/api/modules/auth'
 import { usersApi } from '@/api/modules/users'
+import { useUserStore } from '@/stores/user'
+import { storage } from '@/utils/storage'
 
 const router = useRouter()
 const route = useRoute()
+const userStore = useUserStore()
 
 const formRef = ref<FormInstance>()
 const loading = ref(false)
 const captchaImg = ref('')
 const captchaEnabled = ref(true)
 const usernameStatus = ref<{ available: boolean; message: string } | null>(null)
+const emailStatus = ref<{ available: boolean; message: string } | null>(null)
 let usernameTimer: ReturnType<typeof setTimeout> | null = null
+let emailTimer: ReturnType<typeof setTimeout> | null = null
 
 const formData = reactive({
   username: '',
@@ -201,6 +210,21 @@ function onUsernameInput(val: string) {
   }, 600)
 }
 
+function onEmailInput(val: string) {
+  emailStatus.value = null
+  if (emailTimer) clearTimeout(emailTimer)
+  const trimmed = val.trim()
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return
+  emailTimer = setTimeout(async () => {
+    try {
+      const res = await usersApi.checkEmail(trimmed)
+      emailStatus.value = res.data
+    } catch {
+      // ignore
+    }
+  }, 600)
+}
+
 async function refreshCaptcha() {
   try {
     const res = await authApi.getCaptcha()
@@ -219,13 +243,17 @@ async function handleRegister() {
     ElMessage.warning(usernameStatus.value.message || '该用户名已被使用，请更换')
     return
   }
+  if (emailStatus.value && !emailStatus.value.available) {
+    ElMessage.warning(emailStatus.value.message || '该邮箱已被注册，请更换')
+    return
+  }
 
   await formRef.value.validate(async (valid) => {
     if (!valid) return
 
     loading.value = true
     try {
-      await authApi.register({
+      const res = await authApi.register({
         username: formData.username,
         password: formData.password,
         captcha: formData.captcha,
@@ -233,8 +261,12 @@ async function handleRegister() {
         nickname: formData.nickname.trim() || undefined,
         email: formData.email.trim()
       })
-      ElMessage.success('注册成功，请登录')
-      router.push({ name: 'Login', query: { redirect: route.query.redirect } })
+      // 注册成功后自动登录
+      const user = (res.data as any).user
+      userStore.currentUser = user
+      storage.setUser(user)
+      const redirect = route.query.redirect as string
+      router.replace(redirect || '/')
     } catch {
       // 错误已在 API 层处理；刷新验证码供下次使用
       refreshCaptcha()
@@ -319,6 +351,7 @@ function goToLogin() {
     color: var(--el-color-danger);
   }
 }
+
 
 .register-footer {
   text-align: center;

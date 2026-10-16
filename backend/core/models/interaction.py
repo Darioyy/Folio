@@ -68,6 +68,7 @@ class Collection(db.Model):
         UniqueConstraint('user_id', 'post_id', name='unique_collect'),
         Index('idx_collect_user', 'user_id'),
         Index('idx_collect_post', 'post_id'),
+        Index('idx_collect_folder', 'folder_id'),
         {'comment': '收藏表'}
     )
 

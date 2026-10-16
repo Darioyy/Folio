@@ -2,7 +2,7 @@
 点赞 / 收藏服务（v3.0：绑定 post_id）
 """
 from typing import Dict, List
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func, update as sql_update
 from db.session import db
 from core.models.interaction import Like, Collection
 from core.models.post import Post
@@ -29,12 +29,20 @@ class InteractionService:
 
             if existing:
                 db.session.delete(existing)
-                post.like_count = max(0, (post.like_count or 0) - 1)
+                db.session.execute(
+                    sql_update(Post).where(Post.id == post_id)
+                    .values(like_count=func.greatest(0, Post.like_count - 1))
+                )
                 liked = False
             else:
                 db.session.add(Like(user_id=user_id, post_id=post_id))
-                post.like_count = (post.like_count or 0) + 1
+                db.session.execute(
+                    sql_update(Post).where(Post.id == post_id)
+                    .values(like_count=Post.like_count + 1)
+                )
                 liked = True
+            db.session.flush()
+            db.session.expire(post)
 
         # 通知/撤销通知（幂等，避免反复点赞重复通知）
         if post.author_id != user_id:
@@ -80,12 +88,20 @@ class InteractionService:
 
             if existing:
                 db.session.delete(existing)
-                post.collect_count = max(0, (post.collect_count or 0) - 1)
+                db.session.execute(
+                    sql_update(Post).where(Post.id == post_id)
+                    .values(collect_count=func.greatest(0, Post.collect_count - 1))
+                )
                 collected = False
             else:
                 db.session.add(Collection(user_id=user_id, post_id=post_id))
-                post.collect_count = (post.collect_count or 0) + 1
+                db.session.execute(
+                    sql_update(Post).where(Post.id == post_id)
+                    .values(collect_count=Post.collect_count + 1)
+                )
                 collected = True
+            db.session.flush()
+            db.session.expire(post)
 
         # 通知/撤销通知（幂等）
         if post.author_id != user_id:

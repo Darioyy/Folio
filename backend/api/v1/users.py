@@ -161,7 +161,24 @@ def _build_avatar_svg(letter: str) -> str:
     )
 
 
+@bp.route('/check-email', methods=['GET'])
+@limiter.limit("20/minute")
+def check_email():
+    """GET /api/v1/users/check-email?email=xxx — 检查邮箱是否可用（匿名）"""
+    from sqlalchemy import select as _sel
+    email = request.args.get('email', '').strip().lower()
+    if not email:
+        return error_response('INVALID_PARAMS', '邮箱不能为空', 400)
+    existing = db_session.session.execute(
+        _sel(User).where(User.email == email)
+    ).scalar_one_or_none()
+    if existing:
+        return success_response({'available': False, 'message': '邮箱已被注册'})
+    return success_response({'available': True, 'message': '邮箱可用'})
+
+
 @bp.route('/check-username', methods=['GET'])
+@limiter.limit("20/minute")
 def check_username():
     """
     检查用户名是否可用（匿名访问）
@@ -320,11 +337,20 @@ def register():
 
     try:
         user = UserService.create(data, db_session.session)
-        # 返回格式与登录一致：{data: {user: {...}}}
+        # 注册成功后自动登录（与 login 端点保持一致）
+        session.permanent = True
+        session['user_id'] = user.id
+        session['username'] = user.username
+        session['is_admin'] = user.is_admin
+        session['is_root'] = user.is_root
         return success_response({'user': user.to_dict(show_email=True)}, '注册成功', 201)
     except ValueError as e:
         return error_response('REGISTER_FAILED', str(e), 400)
-    except IntegrityError:
+    except IntegrityError as e:
+        db_session.session.rollback()
+        err_str = str(e.orig).lower() if e.orig else ''
+        if 'email' in err_str or 'uk_email' in err_str:
+            return error_response('EMAIL_EXISTS', '该邮箱已被注册', 400)
         return error_response('USERNAME_EXISTS', '用户名已存在', 400)
 
 
@@ -550,7 +576,9 @@ def update_user(user_id: int):
         user = UserService.update(user_id, data, g.user_id, db_session.session)
         return success_response(user.to_dict(show_email=True), '更新成功')
     except ValueError as e:
-        return error_response('NOT_FOUND', str(e), 404)
+        msg = str(e)
+        http_code = 404 if '不存在' in msg else 400
+        return error_response('NOT_FOUND' if http_code == 404 else 'BAD_REQUEST', msg, http_code)
     except PermissionError as e:
         return error_response('FORBIDDEN', str(e), 403)
 
@@ -600,7 +628,7 @@ def update_user_role(user_id: int):
             }
         }
     """
-    data = request.json
+    data = request.get_json() or {}
     user = UserService.get_by_id(user_id, db_session.session)
 
     if not user:
@@ -655,8 +683,39 @@ def update_profile():
     except Exception as e:
         return error_response('INVALID_PARAMS', format_pydantic_error(e), 400)
 
-    user = UserService.update_profile(g.user_id, data, db_session.session)
-    return success_response(user.to_dict(show_email=True), '个人资料更新成功')
+    try:
+        user = UserService.update_profile(g.user_id, data, db_session.session)
+        return success_response(user.to_dict(show_email=True), '个人资料更新成功')
+    except ValueError as e:
+        return error_response('BAD_REQUEST', str(e), 400)
+
+
+@bp.route('/me/cover', methods=['PUT'])
+@login_required
+def save_cover():
+    """
+    保存用户主页封面元数据
+
+    Request:
+        PUT /api/v1/users/me/cover
+        { "cover_meta": "linear-gradient(...)" }
+
+    Response:
+        { "success": true }
+    """
+    data = request.get_json(silent=True) or {}
+    cover_meta = data.get('cover_meta', '')
+
+    # 限制大小（1MB），防止存入超大 data URL
+    if len(cover_meta) > 1_048_576:
+        return error_response('TOO_LARGE', '封面数据过大', 413)
+
+    from sqlalchemy import update
+    db_session.session.execute(
+        update(User).where(User.id == g.user_id).values(cover_meta=cover_meta or None)
+    )
+    db_session.session.commit()
+    return success_response({}, '封面保存成功')
 
 
 @bp.route('/me/avatar', methods=['POST'])
@@ -848,6 +907,7 @@ def get_user_by_username(username: str):
         'username': user.username,
         'nickname': user.nickname,
         'signature': user.signature,
+        'cover_meta': user.cover_meta,
         'avatar': user.avatar,
         'created_at': user.created_at.isoformat() if user.created_at else None
     }
@@ -920,7 +980,8 @@ def get_user_public_content(username: str):
         from core.models.post import Post
         post_stmt = select(Post).where(
             Post.author_id == user.id,
-            Post.status == 'published'
+            Post.status == 'published',
+            Post.is_hidden == 0,  # 过滤管理员隐藏的博文
         ).order_by(Post.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
 
         posts = list(db_session.session.execute(post_stmt).scalars())
@@ -987,7 +1048,8 @@ def get_user_public_stats(username: str):
     post_count = db_session.session.execute(
         select(func.count(Post.id)).where(
             Post.author_id == user.id,
-            Post.status == 'published'
+            Post.status == 'published',
+            Post.is_hidden == 0,  # 不计入被管理员隐藏的博文
         )
     ).scalar() or 0
     stats['posts'] = post_count
@@ -1019,13 +1081,15 @@ def get_user_public_stats(username: str):
         likes_received = db_session.session.execute(
             select(func.sum(PostModel.like_count)).where(
                 PostModel.author_id == user.id,
-                PostModel.status == 'published'
+                PostModel.status == 'published',
+                PostModel.is_hidden == 0,
             )
         ).scalar() or 0
         collects_received = db_session.session.execute(
             select(func.sum(PostModel.collect_count)).where(
                 PostModel.author_id == user.id,
-                PostModel.status == 'published'
+                PostModel.status == 'published',
+                PostModel.is_hidden == 0,
             )
         ).scalar() or 0
         stats['likes_received'] = int(likes_received)

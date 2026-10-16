@@ -320,7 +320,7 @@ watch(() => route.name, (newName, oldName) => {
 .pin-badge {
   font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
   padding: 1px 5px; border-radius: 3px;
-  background: rgba(90,103,216,0.1); color: $color-primary;
+  background: var(--color-primary-subtle); color: var(--color-primary);
   flex-shrink: 0;
 }
 .pin-btn {
@@ -371,8 +371,8 @@ watch(() => route.name, (newName, oldName) => {
   font-size: 15px; font-weight: 700; width: 20px; flex-shrink: 0; line-height: 1.4;
   color: var(--color-text-muted);
   &.rank-1 { color: #f59e0b; }
-  &.rank-2 { color: #94a3b8; }
-  &.rank-3 { color: #b45309; }
+  &.rank-2 { color: var(--color-text-secondary); }
+  &.rank-3 { color: #b45309; html.dark & { color: #d97706; } }
 }
 .hot-title { font-size: 12px; color: var(--color-text-secondary); line-height: 1.45; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; transition: color $transition-fast; }
 

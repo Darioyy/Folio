@@ -38,6 +38,23 @@ const avatarUrl = computed(() => {
   return `${base}/users/username/${user.value.username}/avatar/view`
 })
 
+const coverStyle = computed(() => {
+  const cm = user.value?.cover_meta
+  if (!cm) return {}
+  try {
+    const parsed = JSON.parse(cm)
+    if (parsed.image) {
+      return {
+        backgroundImage: parsed.image,
+        backgroundSize: parsed.size || 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: parsed.size !== 'cover' ? 'repeat' : 'no-repeat',
+      }
+    }
+  } catch { /* legacy plain string */ }
+  return { backgroundImage: cm }
+})
+
 async function loadProfile() {
   loading.value = true
   try {
@@ -127,7 +144,7 @@ onMounted(async () => {
 
       <!-- 用户卡片 -->
       <div class="user-card">
-        <div class="user-cover" />
+        <div class="user-cover" :class="{ 'has-custom': !!user.cover_meta }" :style="coverStyle" />
         <div class="user-info-section">
           <div class="avatar-wrap">
             <el-avatar :src="avatarUrl" :size="96" class="user-avatar">
@@ -233,7 +250,13 @@ onMounted(async () => {
 .user-profile-page { min-height: 100vh; background: var(--el-bg-color-page); }
 .profile-container { max-width: 1100px; margin: 0 auto; padding: $spacing-lg $spacing-md; }
 .user-card { background: var(--el-bg-color); border-radius: $radius-xl; overflow: hidden; box-shadow: $shadow-md; margin-bottom: $spacing-lg; }
-.user-cover { height: 180px; background: linear-gradient(135deg, $color-primary 0%, $color-secondary 100%); }
+.user-cover {
+  height: 180px;
+  background: linear-gradient(135deg, $color-primary 0%, $color-secondary 100%);
+  background-size: cover;
+  background-position: center;
+  &.has-custom { background-color: transparent; }
+}
 .user-info-section { padding: 0 $spacing-xl $spacing-lg; text-align: center; }
 .avatar-wrap { margin-top: -48px; margin-bottom: $spacing-md; display: flex; justify-content: center; }
 .user-avatar {

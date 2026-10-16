@@ -135,6 +135,14 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '关注列表' }
   },
 
+  // 通知页面
+  {
+    path: '/notifications',
+    name: 'Notifications',
+    component: () => import('@/views/Notifications/index.vue'),
+    meta: { title: '通知', requiresAuth: true, hideInMenu: true }
+  },
+
   // 认证页面
   {
     path: '/login',
@@ -147,6 +155,29 @@ const routes: RouteRecordRaw[] = [
     name: 'Register',
     component: () => import('@/views/Auth/Register.vue'),
     meta: { title: '注册', hideInMenu: true }
+  },
+
+  // 工具箱
+  {
+    path: '/tools',
+    name: 'Tools',
+    component: () => import('@/views/Tools/index.vue'),
+    meta: { title: '工具箱' },
+    redirect: '/tools/html2md',
+    children: [
+      {
+        path: 'html2md',
+        name: 'ToolHtmlToMd',
+        component: () => import('@/views/Tools/HtmlToMd.vue'),
+        meta: { title: 'HTML → Markdown · 工具箱' },
+      },
+      {
+        path: 'pdf',
+        name: 'ToolPdf',
+        component: () => import('@/views/Tools/PdfTools.vue'),
+        meta: { title: 'PDF 工具 · 工具箱' },
+      },
+    ],
   },
 
   // 后台管理

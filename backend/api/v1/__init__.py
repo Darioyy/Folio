@@ -14,10 +14,11 @@ from api.v1.comments import bp as comments_bp
 from api.v1.notifications import bp as notifications_bp
 from api.v1.search import bp as search_bp
 from api.v1.feedback import feedback_bp
+from api.v1.tools import tools_bp
 
 __all__ = [
     'users_bp', 'posts_bp', 'post_interactions_bp',
     'system_bp', 'hub_bp', 'files_bp', 'groups_bp',
     'interactions_bp', 'comments_bp', 'notifications_bp', 'search_bp',
-    'feedback_bp',
+    'feedback_bp', 'tools_bp',
 ]

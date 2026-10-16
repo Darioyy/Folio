@@ -1,0 +1,2 @@
+-- v3.5.3: 将 users.email 字段从 VARCHAR(100) 扩展到 VARCHAR(254)（RFC 5321 最大长度）
+ALTER TABLE users MODIFY COLUMN email VARCHAR(254) NULL COMMENT '邮箱';

@@ -49,11 +49,16 @@ export default defineConfig({
     outDir: 'dist',
     assetsDir: 'assets',
     sourcemap: false,
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
         manualChunks: {
           'element-plus': ['element-plus'],
-          'vue-vendor': ['vue', 'vue-router', 'pinia']
+          'vue-vendor': ['vue', 'vue-router', 'pinia'],
+          // PDF 工具库合计 ~2MB，只在 /tools/pdf 使用，单独分割避免影响首屏
+          'pdf-vendor': ['pdfjs-dist', 'pdf-lib'],
+          // HTML→MD 工具库，只在 /tools/html2md 使用
+          'tools-vendor': ['turndown', 'jszip'],
         }
       }
     }

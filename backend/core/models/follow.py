@@ -2,7 +2,7 @@
 关注关系模型 - SQLAlchemy ORM
 """
 from datetime import datetime
-from sqlalchemy import Column, Integer, DateTime, Index, UniqueConstraint
+from sqlalchemy import Column, Integer, DateTime, ForeignKey, Index, UniqueConstraint
 from db.session import db
 
 
@@ -11,8 +11,8 @@ class Follow(db.Model):
     __tablename__ = 'follows'
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment='关注ID')
-    follower_id = Column(Integer, nullable=False, index=True, comment='关注者ID')
-    following_id = Column(Integer, nullable=False, index=True, comment='被关注者ID')
+    follower_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True, comment='关注者ID')
+    following_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True, comment='被关注者ID')
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, comment='关注时间')
 
     __table_args__ = (

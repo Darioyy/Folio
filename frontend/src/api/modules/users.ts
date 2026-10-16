@@ -37,6 +37,7 @@ export interface UserPublicInfo {
   username: string
   nickname: string | null
   signature: string | null
+  cover_meta: string | null
   avatar: string | null
   followers_count?: number
   following_count?: number
@@ -67,6 +68,13 @@ export const usersApi = {
    */
   checkUsername(username: string): Promise<ApiResponse<{ available: boolean; message: string }>> {
     return get('/users/check-username', { username })
+  },
+
+  /**
+   * 检查邮箱是否可用（匿名）
+   */
+  checkEmail(email: string): Promise<ApiResponse<{ available: boolean; message: string }>> {
+    return get('/users/check-email', { email })
   },
 
   /**
@@ -266,5 +274,12 @@ export const usersApi = {
     params?: { page?: number; page_size?: number }
   ): Promise<ApiResponse<{ items: import('@/types/models').Post[]; total: number; page: number; page_size: number; pages: number }>> {
     return get(`/users/username/${username}/posts`, params)
+  },
+
+  /**
+   * 保存用户主页封面元数据（CSS backgroundImage 字符串）
+   */
+  saveCover(coverMeta: string): Promise<ApiResponse<{}>> {
+    return put('/users/me/cover', { cover_meta: coverMeta })
   }
 }

@@ -105,6 +105,14 @@ class UserService:
         if existing:
             raise ValueError('用户名已存在')
 
+        # 检查邮箱是否已被注册（邮箱非空时才检查）
+        if user_data.email:
+            existing_email = db_session.execute(
+                select(User).where(User.email == user_data.email)
+            ).scalar_one_or_none()
+            if existing_email:
+                raise ValueError('该邮箱已被注册')
+
         # 根据系统配置和角色确定存储配额
         config = SystemService.load_config()
         is_root = getattr(user_data, 'is_root', 0) or 0
@@ -187,6 +195,12 @@ class UserService:
 
         # 更新字段
         if user_data.email is not None and user_data.email != '':
+            if user_data.email != user.email:
+                existing_email = db_session.execute(
+                    select(User).where(User.email == user_data.email, User.id != user_id)
+                ).scalar_one_or_none()
+                if existing_email:
+                    raise ValueError('该邮箱已被注册')
             user.email = user_data.email
 
         if user_data.password is not None:
@@ -371,6 +385,12 @@ class UserService:
             user.signature = profile_data.signature
 
         if profile_data.email is not None and profile_data.email != '':
+            if profile_data.email != user.email:
+                existing_email = db_session.execute(
+                    select(User).where(User.email == profile_data.email, User.id != user_id)
+                ).scalar_one_or_none()
+                if existing_email:
+                    raise ValueError('该邮箱已被注册')
             user.email = profile_data.email
 
         db_session.commit()
@@ -424,31 +444,21 @@ class UserService:
         Returns:
             统计数据字典
         """
-        # 统计文章数量
+        # 文章数（独立表，单独查询）
         post_count = db_session.execute(
             select(func.count(Post.id)).where(Post.author_id == user_id)
         ).scalar() or 0
 
-        # 统计媒体数量（image + video）
-        media_count = db_session.execute(
-            select(func.count(File.id)).where(
-                File.user_id == user_id,
-                File.file_category.in_(['image', 'video'])
-            )
-        ).scalar() or 0
+        # 文件统计：一次 GROUP BY 查询替代 3 次独立 COUNT/SUM
+        file_rows = db_session.execute(
+            select(File.file_category, func.count(File.id), func.sum(File.file_size))
+            .where(File.user_id == user_id)
+            .group_by(File.file_category)
+        ).all()
 
-        # 统计资源数量
-        resource_count = db_session.execute(
-            select(func.count(File.id)).where(
-                File.user_id == user_id,
-                File.file_category == 'resource'
-            )
-        ).scalar() or 0
-
-        # 计算总存储大小
-        total_size = db_session.execute(
-            select(func.sum(File.file_size)).where(File.user_id == user_id)
-        ).scalar() or 0
+        media_count = sum(cnt for cat, cnt, _ in file_rows if cat in ('image', 'video'))
+        resource_count = sum(cnt for cat, cnt, _ in file_rows if cat == 'resource')
+        total_size = sum(sz or 0 for _, _, sz in file_rows)
 
         return {
             'posts': post_count,
@@ -471,68 +481,37 @@ class UserService:
         """
         categories = []
 
-        # 统计图片（files 表 file_category=image）
-        image_count = db_session.execute(
-            select(func.count(File.id)).where(
-                File.user_id == user_id,
-                File.file_category == 'image'
-            )
-        ).scalar() or 0
+        # 文件分类：一次 GROUP BY 替代 6 次独立 COUNT/SUM
+        file_rows = db_session.execute(
+            select(File.file_category, func.count(File.id), func.sum(File.file_size))
+            .where(File.user_id == user_id)
+            .group_by(File.file_category)
+        ).all()
 
-        image_size = db_session.execute(
-            select(func.sum(File.file_size)).where(
-                File.user_id == user_id,
-                File.file_category == 'image'
-            )
-        ).scalar() or 0
+        _type_name = {'image': '图片', 'video': '视频', 'resource': '资源'}
+        for cat, cnt, sz in file_rows:
+            if cat in _type_name and cnt > 0:
+                categories.append({
+                    'type': cat,
+                    'name': _type_name[cat],
+                    'count': cnt,
+                    'size': int(sz or 0)
+                })
 
-        if image_count > 0:
-            categories.append({
-                'type': 'image',
-                'name': '图片',
-                'count': image_count,
-                'size': image_size
-            })
+        # 统计文章（Post）- SQL 层直接计算字节数，避免全量加载正文
+        from sqlalchemy import func as _func
+        post_row = db_session.execute(
+            select(
+                _func.count(Post.id),
+                _func.sum(
+                    _func.octet_length(Post.title) +
+                    _func.octet_length(_func.coalesce(Post.content, ''))
+                )
+            ).where(Post.author_id == user_id)
+        ).one()
 
-        # 统计视频（files 表 file_category=video）
-        video_count = db_session.execute(
-            select(func.count(File.id)).where(
-                File.user_id == user_id,
-                File.file_category == 'video'
-            )
-        ).scalar() or 0
-
-        video_size = db_session.execute(
-            select(func.sum(File.file_size)).where(
-                File.user_id == user_id,
-                File.file_category == 'video'
-            )
-        ).scalar() or 0
-
-        if video_count > 0:
-            categories.append({
-                'type': 'video',
-                'name': '视频',
-                'count': video_count,
-                'size': video_size
-            })
-
-        # 统计文章（Post）- 实际计算大小
-        posts = db_session.execute(
-            select(Post).where(Post.author_id == user_id)
-        ).scalars().all()
-
-        post_count = len(posts)
-        post_size = 0
-
-        for post in posts:
-            # 计算每篇文章的实际大小（标题 + 内容 + 摘要的字节数）
-            size = len(post.title.encode('utf-8'))
-            if post.content:
-                size += len(post.content.encode('utf-8'))
-            if post.summary:
-                size += len(post.summary.encode('utf-8'))
-            post_size += size
+        post_count = post_row[0] or 0
+        post_size = int(post_row[1] or 0)
 
         if post_count > 0:
             categories.append({
@@ -540,29 +519,6 @@ class UserService:
                 'name': '文章',
                 'count': post_count,
                 'size': post_size
-            })
-
-        # 统计资源（files 表 file_category=resource）
-        resource_count = db_session.execute(
-            select(func.count(File.id)).where(
-                File.user_id == user_id,
-                File.file_category == 'resource'
-            )
-        ).scalar() or 0
-
-        resource_size = db_session.execute(
-            select(func.sum(File.file_size)).where(
-                File.user_id == user_id,
-                File.file_category == 'resource'
-            )
-        ).scalar() or 0
-
-        if resource_count > 0:
-            categories.append({
-                'type': 'resource',
-                'name': '资源',
-                'count': resource_count,
-                'size': resource_size
             })
 
         # 按大小降序排序

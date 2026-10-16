@@ -38,4 +38,28 @@ marked.use(markedHighlight({
   }
 }))
 
+// 显式启用 GFM（表格、删除线、任务列表、自动链接等），单换行转 <br>
+marked.use({ gfm: true, breaks: true })
+
+// 图片渲染：添加 loading="lazy"，避免影响首屏性能
+marked.use({
+  renderer: {
+    image({ href, title, text }: { href: string; title?: string | null; text: string }) {
+      const titleAttr = title ? ` title="${title}"` : ''
+      return `<img src="${href}" alt="${text}"${titleAttr} loading="lazy">`
+    }
+  }
+})
+
+// 表格：用 .md-table-wrap 包裹，支持圆角容器 + 横向滚动
+marked.use({
+  hooks: {
+    postprocess(html: string) {
+      return html
+        .replace(/<table>/g, '<div class="md-table-wrap"><table>')
+        .replace(/<\/table>/g, '</table></div>')
+    }
+  }
+})
+
 export { marked }

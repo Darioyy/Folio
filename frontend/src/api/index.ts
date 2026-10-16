@@ -3,6 +3,9 @@ import { ElMessage } from 'element-plus'
 import type { ApiResponse } from '@/types/api'
 import { storage } from '@/utils/storage'
 
+// 防止多个并发 401 响应触发多次跳转
+let isRedirectingToLogin = false
+
 // 创建 axios 实例
 const service: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
@@ -55,9 +58,12 @@ service.interceptors.response.use(
       const msgOpts = (msg: string) => ({ message: msg, duration: 5000, showClose: true })
       switch (status) {
         case 401:
-          ElMessage.error(msgOpts(errorMsg || '未登录或登录已过期'))
-          storage.clear()
-          window.location.href = '/login'
+          if (!isRedirectingToLogin) {
+            isRedirectingToLogin = true
+            ElMessage.error(msgOpts(errorMsg || '未登录或登录已过期'))
+            storage.clear()
+            window.location.href = '/login'
+          }
           break
         case 403:
           ElMessage.error(msgOpts(errorMsg || '没有权限访问'))

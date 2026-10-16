@@ -27,7 +27,17 @@
     </div>
 
     <div v-loading="loading" class="posts-list">
-      <el-empty v-if="!loading && posts.length === 0" description="暂无博文" :image-size="60" />
+      <div v-if="!loading && posts.length === 0" class="posts-empty">
+        <svg class="empty-icon" viewBox="0 0 48 48" fill="none">
+          <rect x="8" y="6" width="32" height="36" rx="4" stroke="var(--color-border)" stroke-width="1.5"/>
+          <path d="M15 17h18M15 23h14M15 29h10" stroke="var(--color-border)" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M30 32l4 4 7-7" stroke="var(--color-border)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <p class="empty-text">
+          {{ activeTab === 'published' ? '还没有发布过文章' : '草稿箱是空的' }}
+        </p>
+        <button class="empty-cta" @click="router.push('/post/create')">写第一篇文章</button>
+      </div>
 
       <div
         v-for="post in posts"
@@ -413,6 +423,42 @@ onActivated(loadPosts)
 }
 
 .posts-list { min-height: 200px; }
+
+.posts-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 0 32px;
+  gap: $spacing-sm;
+}
+
+.empty-icon {
+  width: 48px;
+  height: 48px;
+  margin-bottom: $spacing-xs;
+  opacity: 0.45;
+}
+
+.empty-text {
+  font-size: $font-sm;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.empty-cta {
+  margin-top: $spacing-xs;
+  padding: 6px 16px;
+  font-size: $font-sm;
+  font-weight: 500;
+  color: $color-primary;
+  background: rgba(90, 103, 216, 0.07);
+  border: 1px solid rgba(90, 103, 216, 0.22);
+  border-radius: $radius-md;
+  cursor: pointer;
+  transition: background $transition-fast;
+
+  &:hover { background: rgba(90, 103, 216, 0.14); }
+}
 
 .post-row {
   display: flex;

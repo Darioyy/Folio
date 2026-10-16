@@ -3,7 +3,7 @@
 """
 from typing import List, Optional, Tuple
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func, and_, or_
+from sqlalchemy import select, func, and_, or_, update as sql_update
 from db.session import db
 from core.models.user import User
 from core.models.follow import Follow
@@ -60,14 +60,15 @@ class FollowService:
             )
             db.session.add(follow)
 
-            # 更新关注数
-            follower = FollowService.get_user_by_id(follower_id)
-            following = FollowService.get_user_by_id(following_id)
-
-            if follower:
-                follower.following_count += 1
-            if following:
-                following.followers_count += 1
+            # 原子更新关注数，防并发竞态丢失
+            db.session.execute(
+                sql_update(User).where(User.id == follower_id)
+                .values(following_count=User.following_count + 1)
+            )
+            db.session.execute(
+                sql_update(User).where(User.id == following_id)
+                .values(followers_count=User.followers_count + 1)
+            )
 
         # 通知被关注者（幂等，避免关注-取消-再关注产生多条通知）
         try:
@@ -102,14 +103,15 @@ class FollowService:
             # 删除关注关系
             db.session.delete(follow)
 
-            # 更新关注数
-            follower = FollowService.get_user_by_id(follower_id)
-            following = FollowService.get_user_by_id(following_id)
-
-            if follower and follower.following_count > 0:
-                follower.following_count -= 1
-            if following and following.followers_count > 0:
-                following.followers_count -= 1
+            # 原子更新关注数，防并发竞态丢失
+            db.session.execute(
+                sql_update(User).where(User.id == follower_id)
+                .values(following_count=func.greatest(0, User.following_count - 1))
+            )
+            db.session.execute(
+                sql_update(User).where(User.id == following_id)
+                .values(followers_count=func.greatest(0, User.followers_count - 1))
+            )
 
         # 取消关注时，删除对应的关注通知（避免最终未关注却留有通知）
         try:

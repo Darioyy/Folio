@@ -212,10 +212,17 @@ export function useFileManager(currentFolderId: Ref<number | null>) {
 
   function triggerFileInput() { fileInputRef.value?.click() }
 
+  const MAX_FILE_SIZE = 16 * 1024 * 1024 // 16MB，与后端 MAX_CONTENT_LENGTH 保持一致
+
   function handleFileChange(e: Event) {
     const input = e.target as HTMLInputElement
     const file = input.files?.[0]
     if (file) {
+      if (file.size > MAX_FILE_SIZE) {
+        ElMessage.error(`文件大小不能超过 16MB，当前文件 ${(file.size / 1024 / 1024).toFixed(1)} MB`)
+        input.value = ''
+        return
+      }
       uploadForm.file = file
     }
   }
